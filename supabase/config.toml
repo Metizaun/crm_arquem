@@ -1,0 +1,8 @@
+project_id = "mvvakdsezhfywjdgaqde"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "crm", "storage", "graphql_public"]
+extra_search_path = ["public", "crm"]
+max_rows = 1000
