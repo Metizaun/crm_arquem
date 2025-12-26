@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useApp } from "@/context/AppContext";
 import { useCrmUsers } from "@/hooks/useCrmUsers";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -21,6 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Lead } from "@/hooks/useLeads";
+import { Trash2 } from "lucide-react"; // Importei o ícone de lixeira
 
 interface EditLeadModalProps {
   lead: Lead | null;
@@ -73,6 +73,35 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
     }
   }, [lead]);
 
+  // NOVA FUNÇÃO: Soft Delete
+  const handleDelete = async () => {
+    if (!lead) return;
+    
+    // Confirmação simples do navegador
+    if (!window.confirm("Tem certeza que deseja mover este lead para a lixeira?")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("leads")
+        .update({ view: false }) // Atualiza view para FALSE
+        .eq("id", lead.id);
+
+      if (error) throw error;
+
+      toast.success("Lead movido para a lixeira.");
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      console.error("Erro ao excluir lead:", error);
+      toast.error("Erro ao excluir lead");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!lead) return;
@@ -80,7 +109,6 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
     setLoading(true);
 
     try {
-      // Atualizar lead
       const { error: leadError } = await supabase
         .from("leads")
         .update({
@@ -97,7 +125,6 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
 
       if (leadError) throw leadError;
 
-      // Atualizar ou criar opportunity
       if (formData.value || formData.connection_level) {
         const opportunityData = {
           lead_id: lead.id,
@@ -106,7 +133,6 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
           status: formData.status,
         };
 
-        // Verificar se já existe opportunity
         const { data: existingOpp } = await supabase
           .from("opportunities")
           .select("id")
@@ -114,19 +140,15 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
           .maybeSingle();
 
         if (existingOpp) {
-          // Atualizar
           const { error: oppError } = await supabase
             .from("opportunities")
             .update(opportunityData)
             .eq("id", existingOpp.id);
-
           if (oppError) throw oppError;
         } else {
-          // Criar
           const { error: oppError } = await supabase
             .from("opportunities")
             .insert(opportunityData);
-
           if (oppError) throw oppError;
         }
       }
@@ -136,9 +158,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
       onClose();
     } catch (error: any) {
       console.error("Erro ao atualizar lead:", error);
-      toast.error("Erro ao atualizar lead", {
-        description: error.message,
-      });
+      toast.error("Erro ao atualizar lead", { description: error.message });
     } finally {
       setLoading(false);
     }
@@ -173,11 +193,10 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
@@ -218,9 +237,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
               <Label htmlFor="status">Status</Label>
               <Select
                 value={formData.status}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, status: value })
-                }
+                onValueChange={(value) => setFormData({ ...formData, status: value })}
               >
                 <SelectTrigger id="status">
                   <SelectValue placeholder="Selecione o status" />
@@ -243,9 +260,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
                 step="0.01"
                 placeholder="0.00"
                 value={formData.value}
-                onChange={(e) =>
-                  setFormData({ ...formData, value: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
               />
             </div>
 
@@ -253,9 +268,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
               <Label htmlFor="connection">Nível de Conexão</Label>
               <Select
                 value={formData.connection_level}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, connection_level: value })
-                }
+                onValueChange={(value) => setFormData({ ...formData, connection_level: value })}
               >
                 <SelectTrigger id="connection">
                   <SelectValue placeholder="Selecione o nível" />
@@ -274,9 +287,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
               <Label htmlFor="owner">Responsável</Label>
               <Select
                 value={formData.owner_id}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, owner_id: value })
-                }
+                onValueChange={(value) => setFormData({ ...formData, owner_id: value })}
               >
                 <SelectTrigger id="owner">
                   <SelectValue placeholder="Selecione o responsável" />
@@ -309,19 +320,31 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
               placeholder="Adicione observações sobre este lead..."
               rows={4}
               value={formData.notes}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+          {/* RODAPÉ DO MODAL: Botão de Excluir à Esquerda */}
+          <div className="flex justify-between items-center pt-4">
+            <Button 
+              type="button" 
+              variant="destructive" // Botão vermelho
+              onClick={handleDelete}
+              className="gap-2"
+              disabled={loading}
+            >
+              <Trash2 className="w-4 h-4" />
+              Excluir Lead
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Salvando..." : "Salvar"}
-            </Button>
+
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

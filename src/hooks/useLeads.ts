@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -28,29 +28,47 @@ export function useLeads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchLeads = async () => {
+  const fetchLeads = useCallback(async () => {
     try {
+      setLoading(true);
+
+      // PASSO 1: Descobrir quais IDs estão ativos (view = true)
+      const { data: visibleIdsData, error: visibleError } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('view', true);
+
+      if (visibleError) throw visibleError;
+
+      const visibleIds = visibleIdsData.map(l => l.id);
+
+      if (visibleIds.length === 0) {
+        setLeads([]);
+        return;
+      }
+
+      // PASSO 2: Buscar os detalhes desses IDs na VIEW (mantém a formatação correta)
       const { data, error } = await supabase
         .from('v_lead_details')
-        .select('*');
+        .select('*')
+        .in('id', visibleIds)
+        .order('created_at', { ascending: false } as any);
 
       if (error) throw error;
 
       setLeads(data || []);
     } catch (error: any) {
       console.error("Erro ao carregar leads:", error);
-      toast.error("Erro ao carregar leads", {
-        description: error.message
-      });
+      toast.error("Erro ao carregar leads");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchLeads();
 
-    // Subscribe to realtime updates
+    // Inscreve para atualizações em tempo real
     const channel = supabase
       .channel('leads-changes')
       .on('postgres_changes', {
@@ -65,7 +83,7 @@ export function useLeads() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchLeads]);
 
   return { leads, loading, refetch: fetchLeads };
 }
