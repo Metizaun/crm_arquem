@@ -37,8 +37,14 @@ export function MessageList({ messages, loading }: MessageListProps) {
   }
 
   return (
-    <ScrollArea className="flex-1 p-4">
-      <div ref={scrollRef} className="space-y-4">
+    // Removi o 'p-4' daqui para termos controle fino no container interno
+    <ScrollArea className="flex-1">
+      <div 
+        ref={scrollRef} 
+        className="space-y-4 py-4 pl-4 pr-7" 
+        // pl-4 = 16px (Esquerda)
+        // pr-7 = 28px (Direita - Maior, conforme regra)
+      >
         {messages.map((message) => (
           <MessageBubble
             key={message.id}

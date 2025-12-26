@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom"; // 1. Importação necessária
 import {
   Dialog,
   DialogContent,
@@ -11,10 +12,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function HelpDialog() {
   const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation(); // 2. Pegamos a localização atual
+  const isChatPage = location.pathname === "/chat"; // 3. Verificamos se é o chat
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "?" && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== "INPUT") {
+      // O atalho '?' continua funcionando mesmo sem o botão visível
+      if (e.key === "?" && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
         e.preventDefault();
         setIsOpen(true);
       }
@@ -26,15 +30,18 @@ export function HelpDialog() {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
-        aria-label="Ajuda"
-      >
-        <HelpCircle className="w-6 h-6" />
-      </Button>
+      {/* 4. Renderização Condicional: O botão só aparece se NÃO for a página de chat */}
+      {!isChatPage && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-4 right-4 h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 z-50" // Adicionei z-50 por garantia
+          aria-label="Ajuda"
+        >
+          <HelpCircle className="w-6 h-6" />
+        </Button>
+      )}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
