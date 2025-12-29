@@ -8,42 +8,40 @@ interface FunnelChartProps {
 }
 
 export function FunnelChart({ data, title }: FunnelChartProps) {
+  // 1. Todos os Hooks devem vir PRIMEIRO
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [tooltipAbove, setTooltipAbove] = useState<boolean>(true);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const prevPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // 1) total real: soma de TODOS os leads (mesmo os que não serão exibidos)
+  // 1) total real
   const totalLeads = useMemo(() => data.reduce((s, it) => s + (it?.value || 0), 0) || 1, [data]);
 
-  // 2) Filtrar etapas que queremos esconder do gráfico
+  // 2) Filtrar etapas
   const HIDE_STEPS = ["Perdido", "Remarketing"];
   const validSteps = useMemo(
     () => data.filter((s) => !HIDE_STEPS.includes(s.name) && typeof s.value === "number" && s.value > 0),
     [data]
   );
 
-  if (!validSteps.length) {
-    return (
-      <Card className="p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold mb-4">{title}</h3>
-        <div className="py-8 text-center text-sm text-muted-foreground">Sem dados para exibir</div>
-      </Card>
-    );
-  }
-
-  // layout & geometry
+  // Variáveis de geometria (precisam existir para o useMemo rodar, mesmo sem dados)
   const svgWidth = 880;
   const gap = 10;
   const baseStepHeight = 72;
-  const svgHeight = validSteps.length * baseStepHeight + (validSteps.length - 1) * gap;
+  // Fallback seguro para altura se não tiver passos
+  const svgHeight = validSteps.length > 0 
+    ? validSteps.length * baseStepHeight + (validSteps.length - 1) * gap
+    : 300; 
+    
   const maxWidth = svgWidth * 0.85;
   const centerX = svgWidth / 2;
   const maxValue = Math.max(...validSteps.map((s) => s.value), 1);
 
-  // memoiza trapezoids (identidade estável)
+  // 3) Hook dos Trapezoids (AGORA ESTÁ ANTES DO RETURN)
   const trapezoids = useMemo(() => {
+    if (!validSteps.length) return []; // Retorna array vazio se não tiver steps
+
     return validSteps.map((step, index) => {
       const currentWidthPercent = step.value / maxValue;
       const currentWidth = maxWidth * currentWidthPercent;
@@ -63,7 +61,6 @@ export function FunnelChart({ data, title }: FunnelChartProps) {
         [centerX - nextWidth / 2, y + stepHeight],
       ];
 
-      // % baseado no total real (soma de todos os leads)
       const percentOfTotal = ((step.value / totalLeads) * 100).toFixed(1);
 
       return {
@@ -77,25 +74,11 @@ export function FunnelChart({ data, title }: FunnelChartProps) {
         centerX,
       };
     });
-  }, [validSteps, maxWidth, maxValue, totalLeads]);
+  }, [validSteps, maxWidth, maxValue, totalLeads, baseStepHeight, gap, centerX]);
 
-  const getStepColor = (index: number, total: number) => {
-    const hues = [205, 203, 200, 197, 194, 192];
-    const sats = [70, 72, 68, 65, 60, 58];
-    const lights = [26, 23, 20, 18, 16, 13];
-    if (index === total - 1) return `hsl(192, 60%, 10%)`;
-    const i = Math.min(index, hues.length - 1);
-    return `hsl(${hues[i]}, ${sats[i]}%, ${lights[i]}%)`;
-  };
-
-  // tooltip sizing aproximado (px)
-  const TOOLTIP_W = 220;
-  const TOOLTIP_H = 72;
-  const MARGIN = 8;
-
-  // calcula posição do tooltip (somente quando hoveredIndex muda)
+  // 4) Hook do LayoutEffect (AGORA ESTÁ ANTES DO RETURN)
   useLayoutEffect(() => {
-    if (hoveredIndex === null) {
+    if (hoveredIndex === null || !validSteps.length) {
       prevPosRef.current = null;
       setTooltipPos(null);
       return;
@@ -118,26 +101,20 @@ export function FunnelChart({ data, title }: FunnelChartProps) {
     let px = trap.centerX * scaleX;
     const pyCenter = (trap.y + trap.stepHeight / 2) * scaleY;
 
-    // decidir acima/abaixo:
-    // - prefer acima se couber
-    // - se o passo for "Atendimento", forçar abaixo (pedido seu)
-    const canPlaceAbove = pyCenter - TOOLTIP_H - MARGIN > 0;
-    const canPlaceBelow = pyCenter + TOOLTIP_H + MARGIN < rect.height;
+    const canPlaceAbove = pyCenter - 72 - 8 > 0; // TOOLTIP_H = 72, MARGIN = 8
+    const canPlaceBelow = pyCenter + 72 + 8 < rect.height;
     let placeAbove = canPlaceAbove || !canPlaceBelow;
 
-    // Forçar abaixo quando o passo for "Atendimento"
     if (trap.name === "Atendimento") placeAbove = false;
 
-    // calc topPx (âncora do tooltip)
-    let topPx = placeAbove ? pyCenter - (trap.stepHeight * scaleY) / 2 - MARGIN : pyCenter + (trap.stepHeight * scaleY) / 2 + MARGIN;
+    let topPx = placeAbove ? pyCenter - (trap.stepHeight * scaleY) / 2 - 8 : pyCenter + (trap.stepHeight * scaleY) / 2 + 8;
 
-    // clamp X e Y para dentro do container
-    const minX = MARGIN + TOOLTIP_W / 2;
-    const maxX = rect.width - MARGIN - TOOLTIP_W / 2;
+    const minX = 8 + 220 / 2; // MARGIN + TOOLTIP_W / 2
+    const maxX = rect.width - 8 - 220 / 2;
     px = Math.max(minX, Math.min(maxX, px));
 
-    const minY = MARGIN + TOOLTIP_H / 2;
-    const maxY = rect.height - MARGIN - TOOLTIP_H / 2;
+    const minY = 8 + 72 / 2;
+    const maxY = rect.height - 8 - 72 / 2;
     topPx = Math.max(minY, Math.min(maxY, topPx));
 
     const prev = prevPosRef.current;
@@ -152,7 +129,33 @@ export function FunnelChart({ data, title }: FunnelChartProps) {
       setTooltipPos({ x: px, y: topPx });
       setTooltipAbove(placeAbove);
     }
-  }, [hoveredIndex, trapezoids, svgHeight, svgWidth, tooltipAbove]);
+  }, [hoveredIndex, trapezoids, svgHeight, svgWidth, tooltipAbove, validSteps.length]);
+
+  // Função auxiliar de cores (não é hook, pode ficar aqui ou fora)
+  const getStepColor = (index: number, total: number) => {
+    const hues = [205, 203, 200, 197, 194, 192];
+    const sats = [70, 72, 68, 65, 60, 58];
+    const lights = [26, 23, 20, 18, 16, 13];
+    if (index === total - 1) return `hsl(192, 60%, 10%)`;
+    const i = Math.min(index, hues.length - 1);
+    return `hsl(${hues[i]}, ${sats[i]}%, ${lights[i]}%)`;
+  };
+
+  // AGORA SIM: O Return Condicional (depois de todos os hooks)
+  if (!validSteps.length) {
+    return (
+      <Card className="p-4 sm:p-6 flex flex-col justify-center items-center h-[320px]">
+        <h3 className="text-base sm:text-lg font-semibold mb-4 w-full text-left">{title}</h3>
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+          Sem dados para exibir
+        </div>
+      </Card>
+    );
+  }
+
+  // constantes do tooltip
+  const TOOLTIP_W = 220;
+  const TOOLTIP_H = 72;
 
   return (
     <Card className="p-4 sm:p-6">
@@ -215,8 +218,7 @@ export function FunnelChart({ data, title }: FunnelChartProps) {
           ))}
         </svg>
 
-        {/* Tooltip absoluto adaptativo */}
-        {hoveredIndex !== null && tooltipPos && (
+        {hoveredIndex !== null && tooltipPos && hoveredIndex < trapezoids.length && (
           <div
             style={{
               position: "absolute",

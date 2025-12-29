@@ -8,13 +8,16 @@ import { RevenueByVendorChart } from "@/components/charts/RevenueByVendorChart";
 import { TrendingUp, Users, DollarSign, Target, UserCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
-import { startOfDay, subDays, parseISO, isAfter, isBefore } from "date-fns";
+// Removemos imports manuais de data-fns que causavam o erro (isAfter, etc)
+// Importamos a função utilitária segura:
+import { filterLeadsByPeriod } from "@/lib/utils/filters";
 import { 
   groupLeadsByDay, 
   groupLeadsByOrigin, 
   computeFunnelData, 
   groupRevenueByVendor 
 } from "@/lib/utils/metrics";
+import { Lead } from "@/types"; // Garantindo a tipagem
 
 export default function Dashboard() {
   const { leads, loading } = useLeads();
@@ -25,37 +28,36 @@ export default function Dashboard() {
     const uniqueVendors = Array.from(new Set(leads.map(l => l.owner_name).filter(Boolean)));
     return uniqueVendors.sort();
   }, [leads]);
+
+  // PASSO 1: Normalizar/Converter os leads PRIMEIRO.
+  // Isso garante que todo o resto do código trabalhe com dados limpos e tipados.
+  const normalizedLeads = useMemo(() => {
+    return leads.map(l => ({
+      ...l,
+      // Mapeamento para garantir compatibilidade com a interface Lead e Utils
+      nome: l.lead_name || 'Sem nome',
+      cidade: l.last_city || '',
+      email: l.email || '',
+      telefone: l.contact_phone || '',
+      origem: l.source || 'Desconhecido',
+      conexao: (l.connection_level || 'Média') as "Baixa" | "Média" | "Alta",
+      valor: l.value || 0,
+      dataCriacao: l.created_at, // O utilitário filters.ts espera dataCriacao
+      responsavel: l.owner_name || 'Sem responsável',
+      observacoes: ''
+    })) as unknown as Lead[]; // Casting para garantir compatibilidade com filters.ts
+  }, [leads]);
   
-  // Filter by period
+  // PASSO 2: Filtrar por período usando a função utilitária SEGURA.
+  // A função filterLeadsByPeriod em filters.ts usa comparações que não crasham a aplicação.
   const periodFilteredLeads = useMemo(() => {
-    const now = new Date();
-    const today = startOfDay(now);
-    
-    return leads.filter((lead) => {
-      const createdDate = parseISO(lead.created_at);
-      
-      switch (ui.periodFilter) {
-        case "hoje":
-          return isAfter(createdDate, today);
-        case "7d":
-          return isAfter(createdDate, subDays(now, 7));
-        case "30d":
-          return isAfter(createdDate, subDays(now, 30));
-        case "custom":
-          if (ui.customRange.from && ui.customRange.to) {
-            return isAfter(createdDate, ui.customRange.from) && isBefore(createdDate, ui.customRange.to);
-          }
-          return true;
-        default:
-          return true;
-      }
-    });
-  }, [leads, ui.periodFilter, ui.customRange]);
+    return filterLeadsByPeriod(normalizedLeads, ui.periodFilter, ui.customRange);
+  }, [normalizedLeads, ui.periodFilter, ui.customRange]);
   
-  // Filter by vendor
+  // PASSO 3: Filtrar por vendedor (agora operando sobre os dados já filtrados por data)
   const filteredLeads = useMemo(() => {
     if (selectedVendor === "todos") return periodFilteredLeads;
-    return periodFilteredLeads.filter(lead => lead.owner_name === selectedVendor);
+    return periodFilteredLeads.filter(lead => lead.responsavel === selectedVendor);
   }, [periodFilteredLeads, selectedVendor]);
   
   // Compute KPIs
@@ -64,33 +66,17 @@ export default function Dashboard() {
     const negociosGanhos = filteredLeads.filter(l => l.status === "Fechado").length;
     const valorTotal = filteredLeads
       .filter(l => l.status === "Fechado")
-      .reduce((sum, l) => sum + (l.value || 0), 0);
+      .reduce((sum, l) => sum + (l.valor || 0), 0); // Note: l.valor já existe pois normalizamos antes
     const taxaConversao = totalLeads > 0 ? (negociosGanhos / totalLeads) * 100 : 0;
     
     return { totalLeads, negociosGanhos, valorTotal, taxaConversao };
   }, [filteredLeads]);
 
-  // Converter leads para formato antigo para métricas
-  const convertedLeads = useMemo(() => {
-    return filteredLeads.map(l => ({
-      ...l,
-      nome: l.lead_name,
-      cidade: l.last_city || '',
-      email: l.email || '',
-      telefone: l.contact_phone || '',
-      origem: l.source || '',
-      conexao: (l.connection_level || 'Média') as "Baixa" | "Média" | "Alta",
-      valor: l.value || 0,
-      dataCriacao: l.created_at,
-      responsavel: l.owner_name || '',
-      observacoes: ''
-    }));
-  }, [filteredLeads]);
-
-  const dailyData = useMemo(() => groupLeadsByDay(convertedLeads as any), [convertedLeads]);
-  const originData = useMemo(() => groupLeadsByOrigin(convertedLeads as any), [convertedLeads]);
-  const funnelData = useMemo(() => computeFunnelData(convertedLeads as any), [convertedLeads]);
-  const revenueByVendor = useMemo(() => groupRevenueByVendor(convertedLeads as any), [convertedLeads]);
+  // Métricas para os gráficos
+  const dailyData = useMemo(() => groupLeadsByDay(filteredLeads as any), [filteredLeads]);
+  const originData = useMemo(() => groupLeadsByOrigin(filteredLeads as any), [filteredLeads]);
+  const funnelData = useMemo(() => computeFunnelData(filteredLeads as any), [filteredLeads]);
+  const revenueByVendor = useMemo(() => groupRevenueByVendor(filteredLeads as any), [filteredLeads]);
 
   if (loading) {
     return (
@@ -131,6 +117,8 @@ export default function Dashboard() {
             </SelectContent>
           </Select>
 
+          {/* O seletor de período atualiza o contexto global 'ui.periodFilter', 
+              que dispara o recálculo do useMemo 'periodFilteredLeads' acima */}
           <Select value={ui.periodFilter} onValueChange={(value: any) => setPeriodFilter(value)}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <div className="flex items-center gap-2 flex-1 min-w-0">

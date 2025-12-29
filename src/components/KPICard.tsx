@@ -17,9 +17,9 @@ interface KPICardProps {
 function removeBr(node: ReactNode): ReactNode {
   if (node == null) return node;
 
-  // Array de nós: processa recursivamente
+  // CORREÇÃO 1: Se for array, usa React.Children.map para garantir keys
   if (Array.isArray(node)) {
-    return node.map((child, i) => removeBr(child));
+    return React.Children.map(node, removeBr);
   }
 
   // Elemento React
@@ -28,9 +28,11 @@ function removeBr(node: ReactNode): ReactNode {
     if (node.type === "br") return " ";
 
     const props = (node as any).props || {};
-    if (props && props.children) {
-      const newChildren = removeBr(props.children);
-      return cloneElement(node, { ...props, children: newChildren });
+    
+    // CORREÇÃO 2: Processa children usando React.Children.map
+    if (props.children) {
+      const newChildren = React.Children.map(props.children, removeBr);
+      return cloneElement(node, { ...props, children: newChildren } as any);
     }
     return node;
   }
