@@ -4,7 +4,7 @@ import { toast } from "sonner";
 export function useLeadOperations() {
   const createLead = async (leadData: {
     name: string;
-    email: string;
+    email?: string; // Tornado opcional
     contact_phone: string;
     source: string;
     last_city?: string;
@@ -20,7 +20,7 @@ export function useLeadOperations() {
         .from('leads')
         .insert({
           name: leadData.name,
-          email: leadData.email,
+          email: leadData.email || null, // Se vier string vazia ou undefined, salva como null
           contact_phone: leadData.contact_phone,
           "Fonte": leadData.source,
           last_city: leadData.last_city || null,

@@ -6,7 +6,7 @@ export interface Lead {
   id: string;
   nome: string;
   cidade: string;
-  email: string;
+  email: string | null; // Permitindo null
   telefone: string;
   origem: string;
   conexao: "Baixa" | "Média" | "Alta";

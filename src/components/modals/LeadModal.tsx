@@ -60,7 +60,7 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
 
     const { error } = await createLead({
       name: formData.name,
-      email: formData.email,
+      email: formData.email, // Agora passamos o email mesmo que vazio
       contact_phone: formData.contact_phone,
       source: formData.source,
       last_city: formData.last_city,
@@ -106,11 +106,11 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email">Email</Label> {/* Removido o * */}
               <Input
                 id="email"
                 type="email"
-                required
+                // Removido o atributo required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
