@@ -10,13 +10,23 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, loading }: MessageListProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  // 1. Criamos a referência para o elemento "fim do chat"
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 2. Função que rola até o elemento invisível
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // 3. Sempre que as mensagens mudarem ou o loading terminar, rola para baixo
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    // Usamos um pequeno timeout para garantir que o DOM renderizou
+    const timeoutId = setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [messages, loading]);
 
   if (loading) {
     return (
@@ -37,14 +47,8 @@ export function MessageList({ messages, loading }: MessageListProps) {
   }
 
   return (
-    // Removi o 'p-4' daqui para termos controle fino no container interno
-    <ScrollArea className="flex-1">
-      <div 
-        ref={scrollRef} 
-        className="space-y-4 py-4 pl-4 pr-7" 
-        // pl-4 = 16px (Esquerda)
-        // pr-7 = 28px (Direita - Maior, conforme regra)
-      >
+    <ScrollArea className="flex-1 h-full">
+      <div className="space-y-4 py-4 pl-4 pr-7">
         {messages.map((message) => (
           <MessageBubble
             key={message.id}
@@ -54,6 +58,9 @@ export function MessageList({ messages, loading }: MessageListProps) {
             senderName={message.sender_name}
           />
         ))}
+        
+        {/* 4. O elemento invisível que serve de âncora */}
+        <div ref={messagesEndRef} />
       </div>
     </ScrollArea>
   );
