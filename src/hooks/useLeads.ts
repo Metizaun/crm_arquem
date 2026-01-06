@@ -47,11 +47,14 @@ export function useLeads() {
         return;
       }
 
-      // PASSO 2: Buscar os detalhes desses IDs na VIEW (mantém a formatação correta)
+      // PASSO 2: Buscar os detalhes e ORDENAR pela última mensagem
       const { data, error } = await supabase
         .from('v_lead_details')
         .select('*')
         .in('id', visibleIds)
+        // AQUI ESTÁ O SEGREDO: Ordena por quem mandou mensagem por último
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        // Critério de desempate: data de criação
         .order('created_at', { ascending: false } as any);
 
       if (error) throw error;
@@ -70,12 +73,14 @@ export function useLeads() {
 
     // Inscreve para atualizações em tempo real
     const channel = supabase
-      .channel('leads-changes')
+      .channel('leads-changes-sorting')
       .on('postgres_changes', {
         event: '*',
         schema: 'crm',
         table: 'leads'
-      }, () => {
+      }, (payload) => {
+        // Se houver qualquer mudança no lead (incluindo last_message_at), recarrega a lista
+        console.log("Mudança detectada no lead, recarregando...", payload);
         fetchLeads();
       })
       .subscribe();
