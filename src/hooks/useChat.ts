@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { sendToWebhook } from "@/services/webhookService"; // Certifique-se que criou este arquivo
 
 export interface ChatMessage {
   id: string;
@@ -14,6 +15,7 @@ export interface ChatMessage {
 }
 
 export function useChat(leadId: string | null) {
+  // Estas linhas abaixo são as que provavelmente sumiram:
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -39,10 +41,20 @@ export function useChat(leadId: string | null) {
     }
   };
 
-  const sendMessage = async (content: string) => {
+  // Função ATUALIZADA com o envio para Webhook
+  const sendMessage = async (content: string, leadPhone?: string) => {
     if (!leadId || !content.trim()) return;
 
     try {
+      // 1. Dispara o Webhook (Se tiver telefone)
+      if (leadPhone) {
+        // Não usamos await aqui para não travar a UI (Fire & Forget)
+        sendToWebhook(leadPhone, content); 
+      } else {
+        console.warn("Tentativa de envio sem telefone detectada.");
+      }
+
+      // 2. Salva no Banco (Procedure original)
       const { error } = await supabase.rpc('rpc_send_message', {
         p_lead_id: leadId,
         p_content: content.trim(),
@@ -52,7 +64,6 @@ export function useChat(leadId: string | null) {
 
       if (error) throw error;
 
-      // Message will be added via realtime subscription
     } catch (error: any) {
       console.error("Erro ao enviar mensagem:", error);
       toast.error("Erro ao enviar mensagem", {

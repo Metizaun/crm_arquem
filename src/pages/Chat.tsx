@@ -12,12 +12,16 @@ export default function Chat() {
   const { leads, loading: leadsLoading, refetch } = useLeads();
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  
+  // Hook de chat conectado ao lead selecionado
   const { messages, loading: messagesLoading, sendMessage } = useChat(selectedLeadId);
 
+  // Encontra o objeto Lead completo baseado no ID selecionado
   const selectedLead = leads.find((l) => l.id === selectedLeadId);
 
   return (
     <div className="h-[calc(100vh-4rem)] flex">
+      {/* Barra lateral com a lista de Leads */}
       <LeadSidebar
         leads={leads}
         selectedLeadId={selectedLeadId}
@@ -25,6 +29,7 @@ export default function Chat() {
         loading={leadsLoading}
       />
 
+      {/* Área Principal do Chat */}
       <div className="flex-1 flex flex-col">
         {selectedLead ? (
           <>
@@ -32,10 +37,19 @@ export default function Chat() {
               leadName={selectedLead.lead_name} 
               onOpenDetails={() => setEditingLead(selectedLead)}
             />
+            
             <MessageList messages={messages} loading={messagesLoading} />
-            <ChatInput onSend={sendMessage} />
+            
+            {/* AQUI ESTÁ A CORREÇÃO DE TIPAGEM:
+               Usamos '|| undefined' pois 'contact_phone' pode vir null do banco,
+               e a função espera string ou undefined.
+            */}
+            <ChatInput 
+              onSend={(msg) => sendMessage(msg, selectedLead.contact_phone || undefined)} 
+            />
           </>
         ) : (
+          // Estado vazio (nenhum chat selecionado)
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
               <MessageSquare className="w-16 h-16 mx-auto mb-4 opacity-50" />
@@ -46,6 +60,7 @@ export default function Chat() {
         )}
       </div>
 
+      {/* Modal de Edição do Lead */}
       <EditLeadModal
         lead={editingLead}
         open={!!editingLead}
