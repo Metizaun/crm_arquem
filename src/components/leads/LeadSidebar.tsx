@@ -17,7 +17,7 @@ interface LeadSidebarProps {
 export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: LeadSidebarProps) {
   if (loading) {
     return (
-      <div className="w-80 border-r border-border bg-card p-4 space-y-3">
+      <div className="h-full border-r border-border bg-card p-4 space-y-3">
         {[1, 2, 3, 4, 5].map((i) => (
           <Skeleton key={i} className="h-20 w-full" />
         ))}
@@ -27,15 +27,15 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: Le
 
   if (leads.length === 0) {
     return (
-      <div className="w-80 border-r border-border bg-card p-4">
+      <div className="h-full border-r border-border bg-card p-4">
         <p className="text-muted-foreground text-center">Nenhum lead encontrado</p>
       </div>
     );
   }
 
   return (
-    <div className="w-80 border-r border-border bg-card flex flex-col">
-      <div className="p-4 border-b border-border">
+    <div className="h-full border-r border-border bg-card flex flex-col">
+      <div className="p-4 border-b border-border flex-shrink-0">
         <h2 className="font-semibold text-lg">Conversas</h2>
         <p className="text-sm text-muted-foreground">{leads.length} lead{leads.length !== 1 ? 's' : ''}</p>
       </div>
@@ -45,9 +45,10 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: Le
           {leads.map((lead) => {
             const initial = lead.lead_name.charAt(0).toUpperCase();
             const isSelected = lead.id === selectedLeadId;
+            
             const lastMessageDate = lead.last_message_at 
-              ? format(new Date(lead.last_message_at), "dd/MM HH:mm", { locale: ptBR })
-              : format(new Date(lead.created_at), "dd/MM/yy", { locale: ptBR });
+              ? format(new Date(lead.last_message_at), "dd/MM/yyyy", { locale: ptBR })
+              : format(new Date(lead.created_at), "dd/MM/yyyy", { locale: ptBR });
 
             return (
               <button
@@ -73,13 +74,25 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: Le
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {lead.status}
-                    </Badge>
-                    {lead.source && (
-                      <span className="text-xs text-muted-foreground truncate">
-                        {lead.source}
-                      </span>
+                    {/* Badge 1: Instância (onde estava "Novo") */}
+                    {lead.instance_name && (
+                      <Badge variant="secondary" className="text-xs">
+                        {lead.instance_name}
+                      </Badge>
+                    )}
+                    
+                    {/* Badge 2: Última Tag (onde estava "WhatsApp") */}
+                    {lead.last_tag_name && (
+                      <Badge variant="outline" className="text-xs">
+                        {lead.last_tag_name}
+                      </Badge>
+                    )}
+                    
+                    {/* Fallback: Se não houver instance_name nem last_tag_name, mostra o status */}
+                    {!lead.instance_name && !lead.last_tag_name && (
+                      <Badge variant="outline" className="text-xs">
+                        {lead.status}
+                      </Badge>
                     )}
                   </div>
                 </div>

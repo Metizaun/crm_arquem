@@ -22,6 +22,8 @@ export interface Lead {
   connection_level: string | null;
   opportunity_status: string | null;
   notes: string | null;
+  instance_name?: string | null;
+  last_tag_name: string | null;
 }
 
 export function useLeads() {

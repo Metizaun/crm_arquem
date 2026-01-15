@@ -1,13 +1,19 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Info } from "lucide-react";
 
 interface ChatHeaderProps {
   leadName: string;
+  status: string;
   onOpenDetails?: () => void;
 }
 
-export function ChatHeader({ leadName, onOpenDetails }: ChatHeaderProps) {
+export function ChatHeader({ 
+  leadName, 
+  status,
+  onOpenDetails 
+}: ChatHeaderProps) {
   const initial = leadName.charAt(0).toUpperCase();
 
   return (
@@ -20,7 +26,11 @@ export function ChatHeader({ leadName, onOpenDetails }: ChatHeaderProps) {
         </Avatar>
         <div>
           <h2 className="font-semibold text-lg">{leadName}</h2>
-          <p className="text-sm text-muted-foreground">Online</p>
+          
+          {/* Badge do Status do Funil */}
+          <Badge variant="outline" className="text-xs mt-1">
+            {status}
+          </Badge>
         </div>
       </div>
 

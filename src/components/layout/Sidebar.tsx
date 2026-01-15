@@ -16,10 +16,6 @@ const STORAGE_KEY = "crm_sidebar_collapsed_v1";
 export function Sidebar() {
   const { user, userRole } = useAuth();
   const isAdmin = userRole === "ADMIN";
-
-  // Debug: Log userRole to understand Admin visibility issue
-  console.log('🔍 Sidebar Debug:', { userRole, isAdmin, userEmail: user?.email });
-
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEY) || "false");

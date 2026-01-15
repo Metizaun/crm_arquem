@@ -34,18 +34,21 @@ export default function Chat() {
         {selectedLead ? (
           <>
             <ChatHeader 
-              leadName={selectedLead.lead_name} 
+              leadName={selectedLead.lead_name}
+              status={selectedLead.status}
+              instanceName={selectedLead.instance_name}
               onOpenDetails={() => setEditingLead(selectedLead)}
             />
             
             <MessageList messages={messages} loading={messagesLoading} />
             
-            {/* AQUI ESTÁ A CORREÇÃO DE TIPAGEM:
-               Usamos '|| undefined' pois 'contact_phone' pode vir null do banco,
-               e a função espera string ou undefined.
-            */}
+            {/* ✅ CORREÇÃO: Passa o instance_name como terceiro parâmetro */}
             <ChatInput 
-              onSend={(msg) => sendMessage(msg, selectedLead.contact_phone || undefined)} 
+              onSend={(msg) => sendMessage(
+                msg, 
+                selectedLead.contact_phone || undefined,
+                selectedLead.instance_name  // ✅ ADICIONADO
+              )} 
             />
           </>
         ) : (

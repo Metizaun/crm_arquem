@@ -1,20 +1,24 @@
 // src/services/webhookService.ts
 
-export const sendToWebhook = async (phone: string, message: string) => {
+export const sendToWebhook = async (
+  phone: string, 
+  message: string, 
+  instanceName?: string | null
+) => {
   try {
     // 1. Limpeza do telefone (Remove caracteres não numéricos)
     const cleanPhone = phone.replace(/\D/g, "");
     
     // 2. Formatação para 55 + DDD + Numero (se necessário)
-    // Assumindo que se tiver 10 ou 11 dígitos, precisa do 55.
     const finalNumber = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
 
     const payload = {
       number: finalNumber,
       message: message,
+      instance: instanceName || "default" // Adiciona a instância
     };
 
-    // 3. Disparo (Fire & Forget - não bloqueia o fluxo se falhar, mas loga erro)
+    // 3. Disparo (Fire & Forget)
     fetch("https://hook.rbline.com.br/webhook/envia_chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
