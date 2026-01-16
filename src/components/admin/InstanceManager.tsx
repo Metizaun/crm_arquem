@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+// Badge removido pois não será mais usado
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -12,7 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Settings2, Pencil, Check, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { INSTANCE_COLORS, InstanceColorKey, getInstanceBadgeStyle } from "@/lib/colors";
+// Importamos getInstanceTextColor ao invés de getInstanceBadgeStyle
+import { INSTANCE_COLORS, InstanceColorKey, getInstanceTextColor } from "@/lib/colors";
 import { cn } from "@/lib/utils";
 
 interface Instance {
@@ -31,8 +32,9 @@ export function InstanceManager() {
     try {
       setLoading(true);
       setDebugInfo("");
-      
+
       const { data: { user } } = await supabase.auth.getUser();
+
       if (!user) {
         setDebugInfo("Usuário não autenticado.");
         return;
@@ -73,7 +75,7 @@ export function InstanceManager() {
 
       console.log("📦 Instâncias encontradas:", instanceData);
       setInstances(instanceData || []);
-      
+
     } catch (error: any) {
       toast.error("Erro ao carregar instâncias", { description: error.message });
       setDebugInfo(error.message);
@@ -154,21 +156,22 @@ export function InstanceManager() {
               className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
             >
               <div className="flex flex-col gap-1">
+                {/* LADO ESQUERDO: TEXTO PADRÃO (BRANCO) */}
                 <span className="font-medium text-sm">{instance.instancia}</span>
                 <span className="text-xs text-muted-foreground">Aces_id: {instance.aces_id}</span>
               </div>
 
               <div className="flex items-center gap-4">
+                {/* LADO DIREITO: PREVIEW COLORIDO (SEM BADGE) */}
                 <div className="flex flex-col items-end gap-1">
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
                     Preview
                   </span>
-                  <Badge 
-                    variant="outline" 
-                    className={cn("text-xs font-normal border px-3 py-0.5", getInstanceBadgeStyle(instance.color))}
-                  >
+                  
+                  {/* Aqui usamos a função de cor APENAS no texto, sem Badge */}
+                  <span className={cn("text-sm font-medium", getInstanceTextColor(instance.color))}>
                     {instance.instancia}
-                  </Badge>
+                  </span>
                 </div>
 
                 <Popover>
@@ -186,7 +189,7 @@ export function InstanceManager() {
                     <div className="space-y-2">
                       <h4 className="font-medium leading-none text-sm">Escolha um tema</h4>
                       <p className="text-xs text-muted-foreground">
-                        Isso define a cor da etiqueta no chat.
+                        Isso define a cor do texto da instância.
                       </p>
                       
                       <ScrollArea className="h-[200px] pr-2">
