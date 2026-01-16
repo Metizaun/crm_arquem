@@ -1,5 +1,0 @@
--- Habilitar RLS em todas as tabelas do CRM
-ALTER TABLE crm.users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE crm.leads ENABLE ROW LEVEL SECURITY;
-ALTER TABLE crm.opportunities ENABLE ROW LEVEL SECURITY;
-ALTER TABLE crm.message_history ENABLE ROW LEVEL SECURITY;

@@ -33,10 +33,9 @@ export default function Chat() {
       <div className="flex-1 flex flex-col">
         {selectedLead ? (
           <>
-            {/* ✅ MUDOU: Passa tagName ao invés de status */}
+            {/* Header simples: apenas Avatar + Nome */}
             <ChatHeader 
               leadName={selectedLead.lead_name}
-              tagName={selectedLead.last_tag_name}
               instanceName={selectedLead.instance_name}
               onOpenDetails={() => setEditingLead(selectedLead)}
             />

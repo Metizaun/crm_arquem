@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getUrgencyStyle } from "@/lib/colors";
+import { getUrgencyStyle, getInstanceTextColor } from "@/lib/colors";
 
 interface LeadSidebarProps {
   leads: Lead[];
@@ -53,6 +53,7 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: Le
               : format(new Date(lead.created_at), "dd/MM/yyyy", { locale: ptBR });
 
             const urgencyStyle = getUrgencyStyle(lead.last_tag_urgencia);
+            const instanceColor = getInstanceTextColor(lead.instance_color);
 
             return (
               <button
@@ -82,15 +83,22 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: Le
                   
                   {/* Linha 2: Instância • Source (texto simples) */}
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-xs text-muted-foreground truncate">
+                    <div className="text-xs truncate">
                       {lead.instance_name && lead.source ? (
-                        <span>{lead.instance_name} • {lead.source}</span>
+                        <>
+                          <span className={cn("font-medium", instanceColor)}>
+                            {lead.instance_name}
+                          </span>
+                          <span className="text-muted-foreground"> • {lead.source}</span>
+                        </>
                       ) : lead.instance_name ? (
-                        <span>{lead.instance_name}</span>
+                        <span className={cn("font-medium", instanceColor)}>
+                          {lead.instance_name}
+                        </span>
                       ) : lead.source ? (
-                        <span>{lead.source}</span>
+                        <span className="text-muted-foreground">{lead.source}</span>
                       ) : (
-                        <span className="opacity-50">Sem origem</span>
+                        <span className="text-muted-foreground opacity-50">Sem origem</span>
                       )}
                     </div>
 

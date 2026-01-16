@@ -1,8 +1,11 @@
-project_id = "mvvakdsezhfywjdgaqde"
 
-[api]
+[functions.send-user-invitation]
 enabled = true
-port = 54321
-schemas = ["public", "crm", "storage", "graphql_public"]
-extra_search_path = ["public", "crm"]
-max_rows = 1000
+verify_jwt = true
+import_map = "./functions/send-user-invitation/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/send-user-invitation/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/send-user-invitation/*.html" ]
