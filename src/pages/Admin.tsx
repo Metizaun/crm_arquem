@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { useCrmUsers } from "@/hooks/useCrmUsers";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Shield, UserCheck, User } from "lucide-react";
 import {
@@ -24,6 +22,7 @@ import { Navigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { InstanceManager } from "@/components/admin/InstanceManager";
 
 export default function Admin() {
   const { users: crmUsers, loading, updateUserRole } = useCrmUsers();
@@ -63,8 +62,9 @@ export default function Admin() {
         </p>
       </div>
 
-      <div className="grid gap-6">
-        <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Coluna da Esquerda: Usuários */}
+        <Card className="lg:col-span-2">
           <div className="p-6 border-b border-border">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <UserCheck className="w-5 h-5" />
@@ -133,27 +133,10 @@ export default function Admin() {
           </div>
         </Card>
 
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Atalhos de Teclado</h2>
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center justify-between py-2 border-b border-border">
-              <span className="text-muted-foreground">Busca global</span>
-              <kbd className="px-2 py-1 bg-muted rounded text-xs">Ctrl + K</kbd>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b border-border">
-              <span className="text-muted-foreground">Focar busca</span>
-              <kbd className="px-2 py-1 bg-muted rounded text-xs">/</kbd>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b border-border">
-              <span className="text-muted-foreground">Novo lead</span>
-              <kbd className="px-2 py-1 bg-muted rounded text-xs">N</kbd>
-            </div>
-            <div className="flex items-center justify-between py-2">
-              <span className="text-muted-foreground">Mover lead (com foco)</span>
-              <kbd className="px-2 py-1 bg-muted rounded text-xs">M</kbd>
-            </div>
-          </div>
-        </Card>
+        {/* Coluna Abaixo: Gerenciador de Instâncias */}
+        <div className="lg:col-span-2">
+          <InstanceManager />
+        </div>
       </div>
     </div>
   );

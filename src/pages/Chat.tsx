@@ -33,19 +33,22 @@ export default function Chat() {
       <div className="flex-1 flex flex-col">
         {selectedLead ? (
           <>
+            {/* ✅ MUDOU: Passa tagName ao invés de status */}
             <ChatHeader 
-              leadName={selectedLead.lead_name} 
+              leadName={selectedLead.lead_name}
+              tagName={selectedLead.last_tag_name}
+              instanceName={selectedLead.instance_name}
               onOpenDetails={() => setEditingLead(selectedLead)}
             />
             
             <MessageList messages={messages} loading={messagesLoading} />
             
-            {/* AQUI ESTÁ A CORREÇÃO DE TIPAGEM:
-               Usamos '|| undefined' pois 'contact_phone' pode vir null do banco,
-               e a função espera string ou undefined.
-            */}
             <ChatInput 
-              onSend={(msg) => sendMessage(msg, selectedLead.contact_phone || undefined)} 
+              onSend={(msg) => sendMessage(
+                msg, 
+                selectedLead.contact_phone || undefined,
+                selectedLead.instance_name
+              )} 
             />
           </>
         ) : (

@@ -15,6 +15,8 @@ export interface Lead {
   responsavel: string;
   status: LeadStatus;
   observacoes?: string;
+  instance_name?: string | null;
+  last_tag_name?: string | null;
 }
 
 export interface User {
