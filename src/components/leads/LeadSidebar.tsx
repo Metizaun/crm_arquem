@@ -1,11 +1,11 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Lead } from "@/hooks/useLeads";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getUrgencyStyle } from "@/lib/colors";
 
 interface LeadSidebarProps {
   leads: Lead[];
@@ -37,7 +37,9 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: Le
     <div className="h-full border-r border-border bg-card flex flex-col">
       <div className="p-4 border-b border-border flex-shrink-0">
         <h2 className="font-semibold text-lg">Conversas</h2>
-        <p className="text-sm text-muted-foreground">{leads.length} lead{leads.length !== 1 ? 's' : ''}</p>
+        <p className="text-sm text-muted-foreground">
+          {leads.length} lead{leads.length !== 1 ? 's' : ''}
+        </p>
       </div>
 
       <ScrollArea className="flex-1">
@@ -50,6 +52,8 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: Le
               ? format(new Date(lead.last_message_at), "dd/MM/yyyy", { locale: ptBR })
               : format(new Date(lead.created_at), "dd/MM/yyyy", { locale: ptBR });
 
+            const urgencyStyle = getUrgencyStyle(lead.last_tag_urgencia);
+
             return (
               <button
                 key={lead.id}
@@ -59,40 +63,50 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: Le
                   isSelected && "bg-muted"
                 )}
               >
-                <Avatar>
+                <Avatar className="shrink-0">
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                     {initial}
                   </AvatarFallback>
                 </Avatar>
 
-                <div className="flex-1 text-left overflow-hidden">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-medium truncate">{lead.lead_name}</p>
-                    <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                <div className="flex-1 text-left overflow-hidden min-w-0">
+                  {/* Linha 1: Nome + Data */}
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="font-medium truncate max-w-[180px]">
+                      {lead.lead_name}
+                    </p>
+                    <span className="text-xs text-muted-foreground shrink-0">
                       {lastMessageDate}
                     </span>
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    {/* Badge 1: Instância (onde estava "Novo") */}
-                    {lead.instance_name && (
-                      <Badge variant="secondary" className="text-xs">
-                        {lead.instance_name}
-                      </Badge>
-                    )}
-                    
-                    {/* Badge 2: Última Tag (onde estava "WhatsApp") */}
-                    {lead.last_tag_name && (
-                      <Badge variant="outline" className="text-xs">
-                        {lead.last_tag_name}
-                      </Badge>
-                    )}
-                    
-                    {/* Fallback: Se não houver instance_name nem last_tag_name, mostra o status */}
-                    {!lead.instance_name && !lead.last_tag_name && (
-                      <Badge variant="outline" className="text-xs">
-                        {lead.status}
-                      </Badge>
+                  {/* Linha 2: Instância • Source (texto simples) */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs text-muted-foreground truncate">
+                      {lead.instance_name && lead.source ? (
+                        <span>{lead.instance_name} • {lead.source}</span>
+                      ) : lead.instance_name ? (
+                        <span>{lead.instance_name}</span>
+                      ) : lead.source ? (
+                        <span>{lead.source}</span>
+                      ) : (
+                        <span className="opacity-50">Sem origem</span>
+                      )}
+                    </div>
+
+                    {/* Círculo de Urgência + Tag (à direita) */}
+                    {lead.last_tag_name && urgencyStyle && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div 
+                          className={cn(
+                            "w-2 h-2 rounded-full",
+                            urgencyStyle.dot
+                          )}
+                        />
+                        <span className={cn("text-xs font-medium", urgencyStyle.text)}>
+                          {lead.last_tag_name}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>

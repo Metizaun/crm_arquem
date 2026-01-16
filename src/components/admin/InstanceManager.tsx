@@ -16,7 +16,6 @@ import { INSTANCE_COLORS, InstanceColorKey, getInstanceBadgeStyle } from "@/lib/
 import { cn } from "@/lib/utils";
 
 interface Instance {
-  id: number;
   instancia: string;
   color: string | null;
   aces_id: number;
@@ -25,7 +24,7 @@ interface Instance {
 export function InstanceManager() {
   const [instances, setInstances] = useState<Instance[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>("");
 
   const fetchInstances = async () => {
@@ -33,7 +32,6 @@ export function InstanceManager() {
       setLoading(true);
       setDebugInfo("");
       
-      // 1. Identificar usuário
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setDebugInfo("Usuário não autenticado.");
@@ -42,7 +40,6 @@ export function InstanceManager() {
 
       console.log("🔍 Admin - Auth ID:", user.id);
 
-      // 2. Buscar aces_id
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('aces_id, role')
@@ -63,12 +60,11 @@ export function InstanceManager() {
 
       console.log("✅ Admin - Aces ID encontrado:", userData.aces_id);
 
-      // 3. Buscar instâncias
       const { data: instanceData, error: instanceError } = await supabase
         .from('instance')
-        .select('*')
+        .select('instancia, color, aces_id')
         .eq('aces_id', userData.aces_id)
-        .order('id');
+        .order('instancia');
 
       if (instanceError) {
         console.error("Erro ao buscar instâncias:", instanceError);
@@ -90,18 +86,18 @@ export function InstanceManager() {
     fetchInstances();
   }, []);
 
-  const handleUpdateColor = async (instanceId: number, colorKey: InstanceColorKey) => {
+  const handleUpdateColor = async (instancia: string, colorKey: InstanceColorKey) => {
     try {
-      setUpdatingId(instanceId);
+      setUpdatingId(instancia);
       
       setInstances(prev => prev.map(inst => 
-        inst.id === instanceId ? { ...inst, color: colorKey } : inst
+        inst.instancia === instancia ? { ...inst, color: colorKey } : inst
       ));
 
       const { error } = await supabase
         .from('instance')
         .update({ color: colorKey })
-        .eq('id', instanceId);
+        .eq('instancia', instancia);
 
       if (error) throw error;
       
@@ -154,12 +150,12 @@ export function InstanceManager() {
         <div className="space-y-3">
           {instances.map((instance) => (
             <div 
-              key={instance.id} 
+              key={instance.instancia}
               className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
             >
               <div className="flex flex-col gap-1">
                 <span className="font-medium text-sm">{instance.instancia}</span>
-                <span className="text-xs text-muted-foreground">ID: {instance.id}</span>
+                <span className="text-xs text-muted-foreground">Aces_id: {instance.aces_id}</span>
               </div>
 
               <div className="flex items-center gap-4">
@@ -169,7 +165,7 @@ export function InstanceManager() {
                   </span>
                   <Badge 
                     variant="outline" 
-                    className={cn("text-xs font-normal border px-2 py-0.5", getInstanceBadgeStyle(instance.color))}
+                    className={cn("text-xs font-normal border px-3 py-0.5", getInstanceBadgeStyle(instance.color))}
                   >
                     {instance.instancia}
                   </Badge>
@@ -178,14 +174,15 @@ export function InstanceManager() {
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-                      {updatingId === instance.id ? (
+                      {updatingId === instance.instancia ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Pencil className="h-4 w-4 text-muted-foreground" />
                       )}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-64 p-3" align="end">
+                  
+                  <PopoverContent className="w-auto p-4" align="center">
                     <div className="space-y-2">
                       <h4 className="font-medium leading-none text-sm">Escolha um tema</h4>
                       <p className="text-xs text-muted-foreground">
@@ -193,15 +190,15 @@ export function InstanceManager() {
                       </p>
                       
                       <ScrollArea className="h-[200px] pr-2">
-                        <div className="grid grid-cols-4 gap-2 mt-2">
+                        <div className="grid grid-cols-4 gap-2 mt-2 p-3">
                           {Object.entries(INSTANCE_COLORS).map(([key, value]) => (
                             <button
                               key={key}
-                              onClick={() => handleUpdateColor(instance.id, key as InstanceColorKey)}
+                              onClick={() => handleUpdateColor(instance.instancia, key as InstanceColorKey)}
                               className={cn(
                                 "w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 focus:outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2",
                                 value.dot,
-                                instance.color === key && "ring-2 ring-ring ring-offset-2 scale-110"
+                                instance.color === key && "ring-2 ring-ring ring-offset-1 scale-110"
                               )}
                               title={value.label}
                             >

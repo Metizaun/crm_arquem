@@ -33,21 +33,21 @@ export default function Chat() {
       <div className="flex-1 flex flex-col">
         {selectedLead ? (
           <>
+            {/* ✅ MUDOU: Passa tagName ao invés de status */}
             <ChatHeader 
               leadName={selectedLead.lead_name}
-              status={selectedLead.status}
+              tagName={selectedLead.last_tag_name}
               instanceName={selectedLead.instance_name}
               onOpenDetails={() => setEditingLead(selectedLead)}
             />
             
             <MessageList messages={messages} loading={messagesLoading} />
             
-            {/* ✅ CORREÇÃO: Passa o instance_name como terceiro parâmetro */}
             <ChatInput 
               onSend={(msg) => sendMessage(
                 msg, 
                 selectedLead.contact_phone || undefined,
-                selectedLead.instance_name  // ✅ ADICIONADO
+                selectedLead.instance_name
               )} 
             />
           </>

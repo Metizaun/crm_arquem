@@ -23,7 +23,9 @@ export interface Lead {
   opportunity_status: string | null;
   notes: string | null;
   instance_name?: string | null;
+  instance_color?: string | null;
   last_tag_name: string | null;
+  last_tag_urgencia: number | null; // ✅ NOVO: Nível de urgência da tag (1-4)
 }
 
 export function useLeads() {
@@ -54,7 +56,7 @@ export function useLeads() {
         .from('v_lead_details')
         .select('*')
         .in('id', visibleIds)
-        // AQUI ESTÁ O SEGREDO: Ordena por quem mandou mensagem por último
+        // Ordena por quem mandou mensagem por último
         .order('last_message_at', { ascending: false, nullsFirst: false })
         // Critério de desempate: data de criação
         .order('created_at', { ascending: false } as any);
@@ -81,7 +83,6 @@ export function useLeads() {
         schema: 'crm',
         table: 'leads'
       }, (payload) => {
-        // Se houver qualquer mudança no lead (incluindo last_message_at), recarrega a lista
         console.log("Mudança detectada no lead, recarregando...", payload);
         fetchLeads();
       })

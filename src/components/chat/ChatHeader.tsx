@@ -5,13 +5,15 @@ import { Info } from "lucide-react";
 
 interface ChatHeaderProps {
   leadName: string;
-  status: string;
+  tagName?: string | null; // ✅ MUDOU: Recebe tagName ao invés de status
+  instanceName?: string | null;
   onOpenDetails?: () => void;
 }
 
 export function ChatHeader({ 
   leadName, 
-  status,
+  tagName,
+  instanceName,
   onOpenDetails 
 }: ChatHeaderProps) {
   const initial = leadName.charAt(0).toUpperCase();
@@ -27,10 +29,12 @@ export function ChatHeader({
         <div>
           <h2 className="font-semibold text-lg">{leadName}</h2>
           
-          {/* Badge do Status do Funil */}
-          <Badge variant="outline" className="text-xs mt-1">
-            {status}
-          </Badge>
+          {/* ✅ MUDOU: Mostra Tag ao invés do Status do funil */}
+          {tagName && (
+            <Badge variant="outline" className="text-xs mt-1">
+              {tagName}
+            </Badge>
+          )}
         </div>
       </div>
 

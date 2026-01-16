@@ -23,3 +23,36 @@ export function getInstanceBadgeStyle(colorKey: string | null) {
   const key = (colorKey as InstanceColorKey) || 'slate';
   return INSTANCE_COLORS[key]?.class || INSTANCE_COLORS.slate.class;
 }
+
+// ✅ NOVO: Estilos de urgência das tags
+export const URGENCY_STYLES = {
+  1: { 
+    label: "Positivo",
+    dot: "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]", // Verde neon
+    text: "text-green-700"
+  },
+  2: { 
+    label: "OK",
+    dot: "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]", // Azul neon
+    text: "text-blue-700"
+  },
+  3: { 
+    label: "Ruim",
+    dot: "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]", // Vermelho neon
+    text: "text-red-700"
+  },
+  4: { 
+    label: "Urgente",
+    dot: "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]", // Laranja neon
+    text: "text-orange-700"
+  }
+} as const;
+
+export type UrgencyLevel = 1 | 2 | 3 | 4;
+
+export function getUrgencyStyle(urgencia: number | null) {
+  if (!urgencia || urgencia < 1 || urgencia > 4) {
+    return null;
+  }
+  return URGENCY_STYLES[urgencia as UrgencyLevel];
+}
