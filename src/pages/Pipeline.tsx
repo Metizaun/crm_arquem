@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useLeads } from "@/hooks/useLeads";
+import { useInstances } from "@/hooks/useInstances";
 import { KanbanBoard } from "@/components/kanban/KanbanBoard";
 import { PipelineToolbar } from "@/components/kanban/PipelineToolbar";
 import { useApp } from "@/context/AppContext";
 
 export default function Pipeline() {
   const { leads, loading } = useLeads();
+  const { instances, loading: instancesLoading } = useInstances();
   const { ui, openModal } = useApp();
-  const [selectedVendor, setSelectedVendor] = useState<string>("all");
+  const [selectedInstance, setSelectedInstance] = useState<string>("all");
 
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch = !ui.searchQuery || 
@@ -15,14 +17,10 @@ export default function Pipeline() {
       lead.email?.toLowerCase().includes(ui.searchQuery.toLowerCase()) ||
       lead.contact_phone?.toLowerCase().includes(ui.searchQuery.toLowerCase());
     
-    const matchesVendor = selectedVendor === "all" || lead.owner_name === selectedVendor;
+    const matchesInstance = selectedInstance === "all" || lead.instance_name === selectedInstance;
     
-    return matchesSearch && matchesVendor;
+    return matchesSearch && matchesInstance;
   });
-
-  const vendorOptions = Array.from(
-    new Set(leads.map((lead) => lead.owner_name).filter(Boolean))
-  ) as string[];
 
   if (loading) {
     return (
@@ -44,9 +42,10 @@ export default function Pipeline() {
 
       <PipelineToolbar
         onAddLead={() => openModal("createLead")}
-        selectedVendor={selectedVendor}
-        onVendorChange={setSelectedVendor}
-        vendorOptions={vendorOptions}
+        selectedInstance={selectedInstance}
+        onInstanceChange={setSelectedInstance}
+        instanceOptions={instances.map(inst => inst.instancia)}
+        instancesLoading={instancesLoading}
       />
 
       <KanbanBoard leads={filteredLeads} />

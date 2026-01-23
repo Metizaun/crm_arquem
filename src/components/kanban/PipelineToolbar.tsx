@@ -1,20 +1,22 @@
-import { Plus, HelpCircle, UserCircle } from "lucide-react";
+import { Plus, HelpCircle, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface PipelineToolbarProps {
   onAddLead: () => void;
-  selectedVendor: string;
-  onVendorChange: (vendor: string) => void;
-  vendorOptions: string[];
+  selectedInstance: string;
+  onInstanceChange: (instance: string) => void;
+  instanceOptions: string[];
+  instancesLoading?: boolean;
 }
 
 export function PipelineToolbar({
   onAddLead,
-  selectedVendor,
-  onVendorChange,
-  vendorOptions
+  selectedInstance,
+  onInstanceChange,
+  instanceOptions,
+  instancesLoading = false
 }: PipelineToolbarProps) {
   return (
     <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-lg">
@@ -23,16 +25,16 @@ export function PipelineToolbar({
         Novo Lead
       </Button>
 
-      <Select value={selectedVendor} onValueChange={onVendorChange}>
+      <Select value={selectedInstance} onValueChange={onInstanceChange} disabled={instancesLoading}>
         <SelectTrigger className="w-[240px]">
-          <UserCircle className="w-4 h-4 mr-2" />
-          <SelectValue placeholder="Todos os Vendedores" />
+          <Building2 className="w-4 h-4 mr-2" />
+          <SelectValue placeholder="Todas as Instâncias" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos os Vendedores</SelectItem>
-          {vendorOptions.map((vendor) => (
-            <SelectItem key={vendor} value={vendor}>
-              {vendor}
+          <SelectItem value="all">Todas as Instâncias</SelectItem>
+          {instanceOptions.map((instance) => (
+            <SelectItem key={instance} value={instance}>
+              {instance}
             </SelectItem>
           ))}
         </SelectContent>

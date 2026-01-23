@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 // Badge removido pois não será mais usado
 import { Button } from "@/components/ui/button";
@@ -15,86 +15,16 @@ import { toast } from "sonner";
 // Importamos getInstanceTextColor ao invés de getInstanceBadgeStyle
 import { INSTANCE_COLORS, InstanceColorKey, getInstanceTextColor } from "@/lib/colors";
 import { cn } from "@/lib/utils";
-
-interface Instance {
-  instancia: string;
-  color: string | null;
-  aces_id: number;
-}
+import { useInstances } from "@/hooks/useInstances";
 
 export function InstanceManager() {
-  const [instances, setInstances] = useState<Instance[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { instances, loading, error, refetch } = useInstances();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>("");
-
-  const fetchInstances = async () => {
-    try {
-      setLoading(true);
-      setDebugInfo("");
-
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        setDebugInfo("Usuário não autenticado.");
-        return;
-      }
-
-      console.log("🔍 Admin - Auth ID:", user.id);
-
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('aces_id, role')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (userError) {
-        console.error("Erro ao buscar user crm:", userError);
-        setDebugInfo(`Erro ao buscar dados do usuário: ${userError.message}`);
-        return;
-      }
-
-      if (!userData?.aces_id) {
-        console.warn("Usuário sem aces_id vinculado.");
-        setDebugInfo("Seu usuário não possui um ID de organização (aces_id) vinculado.");
-        return;
-      }
-
-      console.log("✅ Admin - Aces ID encontrado:", userData.aces_id);
-
-      const { data: instanceData, error: instanceError } = await supabase
-        .from('instance')
-        .select('instancia, color, aces_id')
-        .eq('aces_id', userData.aces_id)
-        .order('instancia');
-
-      if (instanceError) {
-        console.error("Erro ao buscar instâncias:", instanceError);
-        throw instanceError;
-      }
-
-      console.log("📦 Instâncias encontradas:", instanceData);
-      setInstances(instanceData || []);
-
-    } catch (error: any) {
-      toast.error("Erro ao carregar instâncias", { description: error.message });
-      setDebugInfo(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchInstances();
-  }, []);
+  const debugInfo = error || "";
 
   const handleUpdateColor = async (instancia: string, colorKey: InstanceColorKey) => {
     try {
       setUpdatingId(instancia);
-      
-      setInstances(prev => prev.map(inst => 
-        inst.instancia === instancia ? { ...inst, color: colorKey } : inst
-      ));
 
       const { error } = await supabase
         .from('instance')
@@ -104,9 +34,11 @@ export function InstanceManager() {
       if (error) throw error;
       
       toast.success("Cor atualizada com sucesso");
-    } catch (error: any) {
-      toast.error("Erro ao salvar cor", { description: error.message });
-      fetchInstances();
+      refetch();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error("Erro ao salvar cor", { description: errorMessage });
+      refetch();
     } finally {
       setUpdatingId(null);
     }
