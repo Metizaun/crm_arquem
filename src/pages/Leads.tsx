@@ -16,7 +16,8 @@ import { toast } from "sonner";
 import { useState } from "react";
 import EditLeadModal from "@/components/modals/EditLeadModal";
 import { Lead } from "@/hooks/useLeads";
-import { exportToCSV } from "@/lib/utils/export"; // 1. Importe a função
+import { exportToCSV, exportGenericToCSV } from "@/lib/utils/export";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Leads() {
   const { leads, loading, refetch } = useLeads();
@@ -34,20 +35,60 @@ export default function Leads() {
     );
   });
 
-  const handleExport = () => {
-    // 2. Verifique se há dados para exportar
-    if (filteredLeads.length === 0) {
-      toast.error("Não há leads para exportar");
-      return;
-    }
-
+  const handleExport = async () => {
     try {
-      // 3. Chame a função passando os leads filtrados
-      exportToCSV(filteredLeads, `leads-export-${format(new Date(), "dd-MM-yyyy")}.csv`);
-      toast.success("Download iniciado!");
-    } catch (error) {
+      // 1. Obter o usuário autenticado
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error("Erro ao obter usuário autenticado");
+      }
+
+      // 2. Buscar o aces_id do usuário
+      const { data: userData, error: userDataError } = await supabase
+        .from('users')
+        .select('aces_id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (userDataError) {
+        throw new Error("Erro ao buscar dados do usuário");
+      }
+
+      const acesId = userData?.aces_id;
+
+      // 3. Verificar se é o aces_id especial (535)
+      if (acesId === 535) {
+        // Buscar dados da view vw_relatorio_leads
+        const { data: viewData, error: viewError } = await supabase
+          .from('vw_relatorio_leads')
+          .select('*');
+
+        if (viewError) {
+          throw new Error(`Erro ao buscar dados da view: ${viewError.message}`);
+        }
+
+        if (!viewData || viewData.length === 0) {
+          toast.error("Não há dados na view para exportar");
+          return;
+        }
+
+        // Exportar usando a função genérica
+        exportGenericToCSV(viewData, `relatorio-leads-${format(new Date(), "dd-MM-yyyy")}.csv`);
+        toast.success("Download iniciado!");
+      } else {
+        // Comportamento normal: exportar leads filtrados
+        if (filteredLeads.length === 0) {
+          toast.error("Não há leads para exportar");
+          return;
+        }
+
+        exportToCSV(filteredLeads, `leads-export-${format(new Date(), "dd-MM-yyyy")}.csv`);
+        toast.success("Download iniciado!");
+      }
+    } catch (error: any) {
       console.error(error);
-      toast.error("Erro ao exportar CSV");
+      toast.error(error.message || "Erro ao exportar CSV");
     }
   };
 
