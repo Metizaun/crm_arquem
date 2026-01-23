@@ -1,11 +1,12 @@
 import { useLeads } from "@/hooks/useLeads";
+import { useInstances } from "@/hooks/useInstances";
 import { useApp } from "@/context/AppContext";
 import { KPICard } from "@/components/KPICard";
 import { LineChart } from "@/components/charts/LineChart";
 import { BarChart } from "@/components/charts/BarChart";
 import { FunnelChart } from "@/components/charts/FunnelChart";
 import { RevenueByVendorChart } from "@/components/charts/RevenueByVendorChart";
-import { TrendingUp, Users, DollarSign, Target, UserCircle } from "lucide-react";
+import { TrendingUp, Users, DollarSign, Target, Building2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo } from "react";
 // Removemos imports manuais de data-fns que causavam o erro (isAfter, etc)
@@ -21,13 +22,9 @@ import { Lead } from "@/types"; // Garantindo a tipagem
 
 export default function Dashboard() {
   const { leads, loading } = useLeads();
+  const { instances, loading: instancesLoading } = useInstances();
   const { ui, setPeriodFilter } = useApp();
-  const [selectedVendor, setSelectedVendor] = useState<string>("todos");
-  
-  const vendors = useMemo(() => {
-    const uniqueVendors = Array.from(new Set(leads.map(l => l.owner_name).filter(Boolean)));
-    return uniqueVendors.sort();
-  }, [leads]);
+  const [selectedInstance, setSelectedInstance] = useState<string>("todas");
 
   // PASSO 1: Normalizar/Converter os leads PRIMEIRO.
   // Isso garante que todo o resto do código trabalhe com dados limpos e tipados.
@@ -54,11 +51,15 @@ export default function Dashboard() {
     return filterLeadsByPeriod(normalizedLeads, ui.periodFilter, ui.customRange);
   }, [normalizedLeads, ui.periodFilter, ui.customRange]);
   
-  // PASSO 3: Filtrar por vendedor (agora operando sobre os dados já filtrados por data)
+  // PASSO 3: Filtrar por instância (agora operando sobre os dados já filtrados por data)
   const filteredLeads = useMemo(() => {
-    if (selectedVendor === "todos") return periodFilteredLeads;
-    return periodFilteredLeads.filter(lead => lead.responsavel === selectedVendor);
-  }, [periodFilteredLeads, selectedVendor]);
+    if (selectedInstance === "todas") return periodFilteredLeads;
+    // Filtrar por instance_name do lead (que vem da view v_lead_details)
+    return periodFilteredLeads.filter(lead => {
+      const leadInstanceName = (lead as any).instance_name;
+      return leadInstanceName === selectedInstance;
+    });
+  }, [periodFilteredLeads, selectedInstance]);
   
   // Compute KPIs
   const kpis = useMemo(() => {
@@ -98,20 +99,20 @@ export default function Dashboard() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
-          <Select value={selectedVendor} onValueChange={setSelectedVendor}>
+          <Select value={selectedInstance} onValueChange={setSelectedInstance} disabled={instancesLoading}>
             <SelectTrigger className="w-full sm:w-[210px]">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <UserCircle className="w-4 h-4" />
+                <Building2 className="w-4 h-4" />
                 <div className="flex-1 min-w-0">
-                  <SelectValue className="truncate block" placeholder="Todos os vendedores" />
+                  <SelectValue className="truncate block" placeholder="Todas as instâncias" />
                 </div>
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos os vendedores</SelectItem>
-              {vendors.map((vendor) => (
-                <SelectItem key={vendor} value={vendor!}>
-                  {vendor}
+              <SelectItem value="todas">Todas as instâncias</SelectItem>
+              {instances.map((instance) => (
+                <SelectItem key={instance.instancia} value={instance.instancia}>
+                  {instance.instancia}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -137,9 +138,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {selectedVendor !== "todos" && (
+      {selectedInstance !== "todas" && (
         <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg text-sm">
-          <span className="font-medium">Filtrando por vendedor:</span> {selectedVendor}
+          <span className="font-medium">Filtrando por instância:</span> {selectedInstance}
         </div>
       )}
 
