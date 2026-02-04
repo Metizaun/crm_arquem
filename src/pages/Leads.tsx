@@ -11,18 +11,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
 import { useState } from "react";
 import EditLeadModal from "@/components/modals/EditLeadModal";
 import { Lead } from "@/hooks/useLeads";
 import { exportToCSV, exportGenericToCSV } from "@/lib/utils/export";
 import { supabase } from "@/integrations/supabase/client";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { DateRange } from "react-day-picker";
 
 export default function Leads() {
   const { leads, loading, refetch } = useLeads();
   const { ui, openModal } = useApp();
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   
   const filteredLeads = leads.filter((lead) => {
     if (!ui.searchQuery) return true;
@@ -59,10 +63,22 @@ export default function Leads() {
 
       // 3. Verificar se é o aces_id especial (535)
       if (acesId === 535) {
-        // Buscar dados da view vw_relatorio_leads
-        const { data: viewData, error: viewError } = await supabase
+        // Buscar dados da view vw_relatorio_leads com filtro de datas (data_entrada)
+        let query = supabase
           .from('vw_relatorio_leads')
           .select('*');
+
+        if (dateRange?.from) {
+          const from = startOfDay(dateRange.from).toISOString();
+          query = query.gte('data_entrada', from);
+        }
+
+        if (dateRange?.to) {
+          const to = endOfDay(dateRange.to).toISOString();
+          query = query.lte('data_entrada', to);
+        }
+
+        const { data: viewData, error: viewError } = await query;
 
         if (viewError) {
           throw new Error(`Erro ao buscar dados da view: ${viewError.message}`);
@@ -114,6 +130,34 @@ export default function Leads() {
         </div>
 
         <div className="flex gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                {dateRange?.from && dateRange?.to
+                  ? `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`
+                  : dateRange?.from
+                  ? `A partir de ${format(dateRange.from, "dd/MM/yyyy")}`
+                  : "Selecionar período"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-4" align="end">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+              />
+              <div className="flex justify-end pt-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDateRange(undefined)}
+                >
+                  Limpar
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           {/* O botão já chama handleExport, então está pronto */}
           <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
