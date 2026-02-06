@@ -44,26 +44,62 @@ export function useLeads() {
 
       if (visibleError) throw visibleError;
 
-      const visibleIds = visibleIdsData.map(l => l.id);
+      const visibleIds = Array.from(
+        new Set(
+          (visibleIdsData || [])
+            .map((lead) => lead.id)
+            .filter((id): id is string => typeof id === "string" && id.length > 0)
+        )
+      );
 
       if (visibleIds.length === 0) {
         setLeads([]);
         return;
       }
 
-      // PASSO 2: Buscar os detalhes e ORDENAR pela última mensagem
-      const { data, error } = await supabase
-        .from('v_lead_details')
-        .select('*')
-        .in('id', visibleIds)
-        // Ordena por quem mandou mensagem por último
-        .order('last_message_at', { ascending: false, nullsFirst: false })
-        // Critério de desempate: data de criação
-        .order('created_at', { ascending: false } as any);
+      // PASSO 2: Buscar os detalhes em lotes para evitar URL muito grande (400)
+      const chunkSize = 200;
+      const allLeads: Lead[] = [];
 
-      if (error) throw error;
+      for (let i = 0; i < visibleIds.length; i += chunkSize) {
+        const chunk = visibleIds.slice(i, i + chunkSize);
+        const { data, error } = await supabase
+          .from('v_lead_details')
+          .select('*')
+          .in('id', chunk)
+          // Ordena por quem mandou mensagem por último
+          .order('last_message_at', { ascending: false, nullsFirst: false })
+          // Critério de desempate: data de criação
+          .order('created_at', { ascending: false } as any);
 
-      setLeads(data || []);
+        if (error) throw error;
+
+        if (data?.length) {
+          allLeads.push(...data);
+        }
+      }
+
+      // Garante a ordenação global entre os lotes
+      allLeads.sort((a, b) => {
+        const aHasLast = !!a.last_message_at;
+        const bHasLast = !!b.last_message_at;
+
+        if (aHasLast !== bHasLast) {
+          return aHasLast ? -1 : 1;
+        }
+
+        if (a.last_message_at && b.last_message_at && a.last_message_at !== b.last_message_at) {
+          return a.last_message_at > b.last_message_at ? -1 : 1;
+        }
+
+        if (a.created_at !== b.created_at) {
+          return a.created_at > b.created_at ? -1 : 1;
+        }
+
+        return 0;
+      });
+
+      setLeads(allLeads);
     } catch (error: any) {
       console.error("Erro ao carregar leads:", error);
       toast.error("Erro ao carregar leads");
