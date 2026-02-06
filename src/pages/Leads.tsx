@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format, parseISO, startOfDay, endOfDay } from "date-fns";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import EditLeadModal from "@/components/modals/EditLeadModal";
 import { Lead } from "@/hooks/useLeads";
 import { exportToCSV, exportGenericToCSV } from "@/lib/utils/export";
@@ -21,14 +21,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 export default function Leads() {
   const { leads, loading, refetch } = useLeads();
   const { ui, openModal } = useApp();
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-  
-  const filteredLeads = leads.filter((lead) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
+
+  const filteredLeads = useMemo(() => leads.filter((lead) => {
     if (!ui.searchQuery) return true;
     const query = ui.searchQuery.toLowerCase();
     return (
@@ -37,7 +48,53 @@ export default function Leads() {
       lead.contact_phone?.toLowerCase().includes(query) ||
       lead.source?.toLowerCase().includes(query)
     );
-  });
+  }), [leads, ui.searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / pageSize));
+  const pagedLeads = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredLeads.slice(start, end);
+  }, [filteredLeads, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [ui.searchQuery]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const pageNumbers = useMemo(() => {
+    const pages: Array<number | "ellipsis"> = [];
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i += 1) pages.push(i);
+      return pages;
+    }
+
+    pages.push(1);
+
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+
+    if (start > 2) pages.push("ellipsis");
+
+    for (let i = start; i <= end; i += 1) pages.push(i);
+
+    if (end < totalPages - 1) pages.push("ellipsis");
+
+    pages.push(totalPages);
+
+    return pages;
+  }, [currentPage, totalPages]);
+
+  const handlePageClick = (page: number) => (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    setCurrentPage(page);
+  };
 
   const handleExport = async () => {
     try {
@@ -197,7 +254,7 @@ export default function Leads() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredLeads.map((lead) => (
+              pagedLeads.map((lead) => (
                 <TableRow key={lead.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium">{lead.lead_name}</TableCell>
                   <TableCell>{lead.last_city || "-"}</TableCell>
@@ -250,6 +307,61 @@ export default function Leads() {
           </TableBody>
         </Table>
       </div>
+
+      {filteredLeads.length > 0 && (
+        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+          <p className="text-sm text-muted-foreground">
+            Mostrando{" "}
+            <span className="font-medium text-foreground">
+              {(currentPage - 1) * pageSize + 1}
+            </span>
+            {" "}
+            até{" "}
+            <span className="font-medium text-foreground">
+              {Math.min(currentPage * pageSize, filteredLeads.length)}
+            </span>
+            {" "}
+            de{" "}
+            <span className="font-medium text-foreground">{filteredLeads.length}</span>
+          </p>
+
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={handlePageClick(Math.max(1, currentPage - 1))}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+
+              {pageNumbers.map((page, index) => (
+                <PaginationItem key={`${page}-${index}`}>
+                  {page === "ellipsis" ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={page === currentPage}
+                      onClick={handlePageClick(page)}
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={handlePageClick(Math.min(totalPages, currentPage + 1))}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
 
       <EditLeadModal
         lead={editingLead}
