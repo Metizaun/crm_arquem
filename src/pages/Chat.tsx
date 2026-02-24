@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLeads, Lead } from "@/hooks/useLeads";
 import { useChat } from "@/hooks/useChat";
 import { LeadSidebar } from "@/components/leads/LeadSidebar";
@@ -7,23 +7,38 @@ import { MessageList } from "@/components/chat/MessageList";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { MessageSquare } from "lucide-react";
 import EditLeadModal from "@/components/modals/EditLeadModal";
+import { useApp } from "@/context/AppContext";
 
 export default function Chat() {
   const { leads, loading: leadsLoading, refetch } = useLeads();
+  const { ui } = useApp();
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   
   // Hook de chat conectado ao lead selecionado
   const { messages, loading: messagesLoading, sendMessage } = useChat(selectedLeadId);
 
-  // Encontra o objeto Lead completo baseado no ID selecionado
-  const selectedLead = leads.find((l) => l.id === selectedLeadId);
+  const filteredLeads = useMemo(() => {
+    if (!ui.searchQuery) return leads;
+
+    const query = ui.searchQuery.toLowerCase();
+    return leads.filter((lead) =>
+      lead.lead_name.toLowerCase().includes(query) ||
+      lead.email?.toLowerCase().includes(query) ||
+      lead.contact_phone?.toLowerCase().includes(query) ||
+      lead.source?.toLowerCase().includes(query) ||
+      lead.instance_name?.toLowerCase().includes(query)
+    );
+  }, [leads, ui.searchQuery]);
+
+  // Encontra o objeto Lead baseado no ID selecionado dentro da lista filtrada
+  const selectedLead = filteredLeads.find((l) => l.id === selectedLeadId);
 
   return (
     <div className="h-[calc(100vh-4rem)] flex">
       {/* Barra lateral com a lista de Leads */}
       <LeadSidebar
-        leads={leads}
+        leads={filteredLeads}
         selectedLeadId={selectedLeadId}
         onSelectLead={setSelectedLeadId}
         loading={leadsLoading}
