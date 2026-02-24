@@ -25,7 +25,7 @@ export interface Lead {
   instance_name?: string | null;
   instance_color?: string | null;
   last_tag_name: string | null;
-  last_tag_urgencia: number | null; // ✅ NOVO: Nível de urgência da tag (1-4)
+  last_tag_urgencia: number | null;
 }
 
 export function useLeads() {
@@ -36,17 +36,41 @@ export function useLeads() {
     try {
       setLoading(true);
 
-      // PASSO 1: Descobrir quais IDs estão ativos (view = true)
-      const { data: visibleIdsData, error: visibleError } = await supabase
-        .from('leads')
-        .select('id')
-        .eq('view', true);
+      // PASSO 1: Descobrir quais IDs estao ativos (view = true), com paginacao
+      const PAGE_SIZE = 500;
+      const visibleIdRows: Array<{ id: string | null }> = [];
+      let page = 0;
 
-      if (visibleError) throw visibleError;
+      while (true) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+          .from("leads")
+          .select("id")
+          .eq("view", true)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          break;
+        }
+
+        visibleIdRows.push(...data);
+
+        if (data.length < PAGE_SIZE) {
+          break;
+        }
+
+        page += 1;
+      }
 
       const visibleIds = Array.from(
         new Set(
-          (visibleIdsData || [])
+          visibleIdRows
             .map((lead) => lead.id)
             .filter((id): id is string => typeof id === "string" && id.length > 0)
         )
@@ -64,13 +88,11 @@ export function useLeads() {
       for (let i = 0; i < visibleIds.length; i += chunkSize) {
         const chunk = visibleIds.slice(i, i + chunkSize);
         const { data, error } = await supabase
-          .from('v_lead_details')
-          .select('*')
-          .in('id', chunk)
-          // Ordena por quem mandou mensagem por último
-          .order('last_message_at', { ascending: false, nullsFirst: false })
-          // Critério de desempate: data de criação
-          .order('created_at', { ascending: false } as any);
+          .from("v_lead_details")
+          .select("*")
+          .in("id", chunk)
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false } as any);
 
         if (error) throw error;
 
@@ -79,7 +101,19 @@ export function useLeads() {
         }
       }
 
-      // Garante a ordenação global entre os lotes
+      if (allLeads.length !== visibleIds.length) {
+        const loadedLeadIds = new Set(allLeads.map((lead) => lead.id));
+        const missingIds = visibleIds.filter((id) => !loadedLeadIds.has(id));
+
+        console.warn("[useLeads] Divergencia entre IDs visiveis e detalhes carregados", {
+          visibleIdsCount: visibleIds.length,
+          loadedLeadsCount: allLeads.length,
+          missingCount: missingIds.length,
+          sampleMissingIds: missingIds.slice(0, 10),
+        });
+      }
+
+      // Garante a ordenacao global entre os lotes
       allLeads.sort((a, b) => {
         const aHasLast = !!a.last_message_at;
         const bHasLast = !!b.last_message_at;
@@ -111,17 +145,21 @@ export function useLeads() {
   useEffect(() => {
     fetchLeads();
 
-    // Inscreve para atualizações em tempo real
+    // Inscreve para atualizacoes em tempo real
     const channel = supabase
-      .channel('leads-changes-sorting')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'crm',
-        table: 'leads'
-      }, (payload) => {
-        console.log("Mudança detectada no lead, recarregando...", payload);
-        fetchLeads();
-      })
+      .channel("leads-changes-sorting")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "crm",
+          table: "leads",
+        },
+        (payload) => {
+          console.log("Mudanca detectada no lead, recarregando...", payload);
+          fetchLeads();
+        }
+      )
       .subscribe();
 
     return () => {
