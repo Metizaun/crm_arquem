@@ -6,7 +6,7 @@ import { PipelineToolbar } from "@/components/kanban/PipelineToolbar";
 import { useApp } from "@/context/AppContext";
 
 export default function Pipeline() {
-  const { leads, loading } = useLeads();
+  const { leads, loading } = useLeads({ enableRealtime: false });
   const { instances, loading: instancesLoading } = useInstances();
   const { ui, openModal } = useApp();
   const [selectedInstance, setSelectedInstance] = useState<string>("all");

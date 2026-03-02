@@ -33,7 +33,10 @@ import { toast } from "sonner";
 
 export function LeadDrawer() {
   const { ui, closeDrawer } = useApp();
-  const { leads, refetch } = useLeads();
+  const { leads, refetch } = useLeads({
+    enabled: !!ui.drawerLeadId,
+    enableRealtime: false,
+  });
   const { updateLeadStatus } = useLeadOperations();
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   

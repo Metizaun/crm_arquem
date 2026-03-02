@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/pagination";
 
 export default function Leads() {
-  const { leads, loading, refetch } = useLeads();
+  const { leads, loading, refetch } = useLeads({ enableRealtime: false });
   const { ui, openModal } = useApp();
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);

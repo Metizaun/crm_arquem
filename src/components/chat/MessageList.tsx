@@ -1,8 +1,10 @@
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { MessageBubble } from "./MessageBubble";
+import { DateSeparator } from "./DateSeparator";
 import { ChatMessage } from "@/hooks/useChat";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { formatChatDateLabel, getDayKey } from "@/lib/utils/chatDate";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -10,17 +12,13 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages, loading }: MessageListProps) {
-  // 1. Criamos a referência para o elemento "fim do chat"
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 2. Função que rola até o elemento invisível
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 3. Sempre que as mensagens mudarem ou o loading terminar, rola para baixo
   useEffect(() => {
-    // Usamos um pequeno timeout para garantir que o DOM renderizou
     const timeoutId = setTimeout(() => {
       scrollToBottom();
     }, 100);
@@ -49,17 +47,28 @@ export function MessageList({ messages, loading }: MessageListProps) {
   return (
     <ScrollArea className="flex-1 h-full">
       <div className="space-y-4 py-4 pl-4 pr-7">
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            content={message.content}
-            sentAt={message.sent_at}
-            isOutbound={message.direction_code === 2}
-            senderName={message.sender_name}
-          />
-        ))}
-        
-        {/* 4. O elemento invisível que serve de âncora */}
+        {messages.map((message, index) => {
+          const currentMessageDate = new Date(message.sent_at);
+          const previousMessage = index > 0 ? messages[index - 1] : null;
+          const previousMessageDate = previousMessage ? new Date(previousMessage.sent_at) : null;
+
+          const shouldShowDateSeparator =
+            !previousMessageDate || getDayKey(currentMessageDate) !== getDayKey(previousMessageDate);
+
+          return (
+            <Fragment key={message.id}>
+              {shouldShowDateSeparator && (
+                <DateSeparator label={formatChatDateLabel(currentMessageDate)} />
+              )}
+              <MessageBubble
+                content={message.content}
+                sentAt={message.sent_at}
+                isOutbound={message.direction_code === 2}
+                senderName={message.sender_name}
+              />
+            </Fragment>
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
     </ScrollArea>

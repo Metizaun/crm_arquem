@@ -21,7 +21,7 @@ import {
 import { Lead } from "@/types"; // Garantindo a tipagem
 
 export default function Dashboard() {
-  const { leads, loading } = useLeads();
+  const { leads, loading } = useLeads({ enableRealtime: false });
   const { instances, loading: instancesLoading } = useInstances();
   const { ui, setPeriodFilter } = useApp();
   const [selectedInstance, setSelectedInstance] = useState<string>("todas");

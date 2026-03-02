@@ -10,7 +10,7 @@ import EditLeadModal from "@/components/modals/EditLeadModal";
 import { useApp } from "@/context/AppContext";
 
 export default function Chat() {
-  const { leads, loading: leadsLoading, refetch } = useLeads();
+  const { leads, loading: leadsLoading, refetch } = useLeads({ enableRealtime: true });
   const { ui } = useApp();
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);

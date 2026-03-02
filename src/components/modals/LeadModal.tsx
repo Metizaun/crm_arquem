@@ -23,7 +23,7 @@ interface LeadModalProps {
 export function LeadModal({ isOpen, onClose }: LeadModalProps) {
   const { createLead } = useLeadOperations();
   const { users } = useCrmUsers();
-  const { refetch } = useLeads();
+  const { refetch } = useLeads({ enableRealtime: false });
 
   const [formData, setFormData] = useState({
     name: "",

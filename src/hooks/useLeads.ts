@@ -28,9 +28,15 @@ export interface Lead {
   last_tag_urgencia: number | null;
 }
 
-export function useLeads() {
+interface UseLeadsOptions {
+  enableRealtime?: boolean;
+  enabled?: boolean;
+}
+
+export function useLeads(options: UseLeadsOptions = {}) {
+  const { enableRealtime = false, enabled = true } = options;
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
 
   const fetchLeads = useCallback(async () => {
     try {
@@ -143,7 +149,16 @@ export function useLeads() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
     fetchLeads();
+
+    if (!enableRealtime) {
+      return;
+    }
 
     // Inscreve para atualizacoes em tempo real
     const channel = supabase
@@ -165,7 +180,7 @@ export function useLeads() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchLeads]);
+  }, [enabled, enableRealtime, fetchLeads]);
 
   return { leads, loading, refetch: fetchLeads };
 }
