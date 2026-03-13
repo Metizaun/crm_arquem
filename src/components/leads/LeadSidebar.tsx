@@ -15,7 +15,7 @@ interface LeadSidebarProps {
 }
 
 export function LeadSidebar({ leads, selectedLeadId, onSelectLead, loading }: LeadSidebarProps) {
-  if (loading) {
+  if (loading && leads.length === 0) {
     return (
       <div className="h-full border-r border-border bg-card p-4 space-y-3">
         {[1, 2, 3, 4, 5].map((i) => (

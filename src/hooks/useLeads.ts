@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -33,14 +33,52 @@ interface UseLeadsOptions {
   enabled?: boolean;
 }
 
+function sortLeadsByRecency(value: Lead[]): Lead[] {
+  return [...value].sort((a, b) => {
+    const aHasLast = !!a.last_message_at;
+    const bHasLast = !!b.last_message_at;
+
+    if (aHasLast !== bHasLast) {
+      return aHasLast ? -1 : 1;
+    }
+
+    if (a.last_message_at && b.last_message_at && a.last_message_at !== b.last_message_at) {
+      return a.last_message_at > b.last_message_at ? -1 : 1;
+    }
+
+    if (a.created_at !== b.created_at) {
+      return a.created_at > b.created_at ? -1 : 1;
+    }
+
+    return 0;
+  });
+}
+
 export function useLeads(options: UseLeadsOptions = {}) {
   const { enableRealtime = false, enabled = true } = options;
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(enabled);
+  const pendingRealtimeLeadIdsRef = useRef<Set<string>>(new Set());
+  const flushRealtimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
-  const fetchLeads = useCallback(async () => {
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const fetchLeads = useCallback(async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
 
       // PASSO 1: Descobrir quais IDs estao ativos (view = true), com paginacao
       const PAGE_SIZE = 500;
@@ -83,6 +121,9 @@ export function useLeads(options: UseLeadsOptions = {}) {
       );
 
       if (visibleIds.length === 0) {
+        if (!isMountedRef.current) {
+          return;
+        }
         setLeads([]);
         return;
       }
@@ -119,34 +160,135 @@ export function useLeads(options: UseLeadsOptions = {}) {
         });
       }
 
-      // Garante a ordenacao global entre os lotes
-      allLeads.sort((a, b) => {
-        const aHasLast = !!a.last_message_at;
-        const bHasLast = !!b.last_message_at;
-
-        if (aHasLast !== bHasLast) {
-          return aHasLast ? -1 : 1;
-        }
-
-        if (a.last_message_at && b.last_message_at && a.last_message_at !== b.last_message_at) {
-          return a.last_message_at > b.last_message_at ? -1 : 1;
-        }
-
-        if (a.created_at !== b.created_at) {
-          return a.created_at > b.created_at ? -1 : 1;
-        }
-
-        return 0;
-      });
-
-      setLeads(allLeads);
+      if (!isMountedRef.current) {
+        return;
+      }
+      setLeads(sortLeadsByRecency(allLeads));
     } catch (error: any) {
       console.error("Erro ao carregar leads:", error);
       toast.error("Erro ao carregar leads");
     } finally {
-      setLoading(false);
+      if (showLoading && isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
+
+  const flushRealtimeLeadUpdates = useCallback(async () => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    const ids = Array.from(pendingRealtimeLeadIdsRef.current);
+    pendingRealtimeLeadIdsRef.current.clear();
+    flushRealtimeTimeoutRef.current = null;
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    try {
+      const chunkSize = 200;
+      const updatedLeads: Lead[] = [];
+      const idsToRemove: string[] = [];
+
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const { data: visibilityData, error: visibilityError } = await supabase
+          .from("leads")
+          .select("id, view")
+          .in("id", chunk);
+
+        if (visibilityError) throw visibilityError;
+
+        const visibleIdSet = new Set(
+          (visibilityData ?? [])
+            .filter((row: any) => row?.view === true && typeof row?.id === "string" && row.id.length > 0)
+            .map((row: any) => row.id as string)
+        );
+
+        for (const id of chunk) {
+          if (!visibleIdSet.has(id)) {
+            idsToRemove.push(id);
+          }
+        }
+
+        const visibleIds = Array.from(visibleIdSet);
+        if (visibleIds.length === 0) {
+          continue;
+        }
+
+        const { data, error } = await supabase.from("v_lead_details").select("*").in("id", visibleIds);
+
+        if (error) throw error;
+
+        const returnedIdSet = new Set((data ?? []).map((lead: any) => lead?.id).filter(Boolean));
+        for (const id of visibleIds) {
+          if (!returnedIdSet.has(id)) {
+            idsToRemove.push(id);
+          }
+        }
+
+        if (data?.length) {
+          updatedLeads.push(...data);
+        }
+      }
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const removeSet = new Set(idsToRemove);
+
+      setLeads((prev) => {
+        const prevHasAnyRemove = removeSet.size > 0 && prev.some((lead) => removeSet.has(lead.id));
+        const hasAnyChange = updatedLeads.length > 0 || prevHasAnyRemove;
+
+        if (!hasAnyChange) {
+          return prev;
+        }
+
+        let next = prev;
+
+        if (prevHasAnyRemove) {
+          next = next.filter((lead) => !removeSet.has(lead.id));
+        }
+
+        if (updatedLeads.length > 0) {
+          if (next === prev) {
+            next = [...next];
+          }
+          const byId = new Map(next.map((lead) => [lead.id, lead]));
+          for (const lead of updatedLeads) {
+            byId.set(lead.id, lead);
+          }
+          next = Array.from(byId.values());
+        }
+
+        return sortLeadsByRecency(next);
+      });
+    } catch (error) {
+      console.error("[useLeads] Erro no patch incremental; fallback para refetch em background.", error);
+      if (isMountedRef.current) {
+        void fetchLeads({ showLoading: false });
+      }
+    }
+  }, [fetchLeads]);
+
+  const queueRealtimeLeadUpdate = useCallback(
+    (leadId: string) => {
+      pendingRealtimeLeadIdsRef.current.add(leadId);
+
+      if (flushRealtimeTimeoutRef.current) {
+        return;
+      }
+
+      flushRealtimeTimeoutRef.current = setTimeout(() => {
+        void flushRealtimeLeadUpdates();
+      }, 250);
+    },
+    [flushRealtimeLeadUpdates]
+  );
 
   useEffect(() => {
     if (!enabled) {
@@ -171,16 +313,30 @@ export function useLeads(options: UseLeadsOptions = {}) {
           table: "leads",
         },
         (payload) => {
-          console.log("Mudanca detectada no lead, recarregando...", payload);
-          fetchLeads();
+          const leadId = (payload.new as any)?.id ?? (payload.old as any)?.id;
+
+          if (typeof leadId !== "string" || leadId.length === 0) {
+            console.warn("[useLeads] Evento realtime sem leadId; fallback para refetch em background.", payload);
+            void fetchLeads({ showLoading: false });
+            return;
+          }
+
+          queueRealtimeLeadUpdate(leadId);
         }
       )
       .subscribe();
 
     return () => {
+      if (flushRealtimeTimeoutRef.current) {
+        clearTimeout(flushRealtimeTimeoutRef.current);
+        flushRealtimeTimeoutRef.current = null;
+      }
+      pendingRealtimeLeadIdsRef.current.clear();
       supabase.removeChannel(channel);
     };
-  }, [enabled, enableRealtime, fetchLeads]);
+  }, [enabled, enableRealtime, fetchLeads, queueRealtimeLeadUpdate]);
 
-  return { leads, loading, refetch: fetchLeads };
+  const refetch = useCallback(() => fetchLeads({ showLoading: true }), [fetchLeads]);
+
+  return { leads, loading, refetch };
 }
