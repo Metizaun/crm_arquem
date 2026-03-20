@@ -90,7 +90,6 @@ export function InstanceManager() {
               <div className="flex flex-col gap-1">
                 {/* LADO ESQUERDO: TEXTO PADRÃO (BRANCO) */}
                 <span className="font-medium text-sm">{instance.instancia}</span>
-                <span className="text-xs text-muted-foreground">Aces_id: {instance.aces_id}</span>
               </div>
 
               <div className="flex items-center gap-4">

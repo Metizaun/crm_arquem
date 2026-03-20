@@ -2,6 +2,8 @@ import { Plus, HelpCircle, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useAuth } from "@/contexts/AuthContext";
+import { useApp } from "@/context/AppContext";
 
 interface PipelineToolbarProps {
   onAddLead: () => void;
@@ -18,13 +20,32 @@ export function PipelineToolbar({
   instanceOptions,
   instancesLoading = false
 }: PipelineToolbarProps) {
-  return (
-    <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-lg">
-      <Button onClick={onAddLead} size="default" className="gap-2">
-        <Plus className="w-4 h-4" />
-        Novo Lead
-      </Button>
+  const { userRole } = useAuth();
+  const { openModal } = useApp();
+  const isAdmin = userRole === 'ADMIN';
 
+  return (
+    <div className="flex items-center justify-between p-4 bg-card border border-border rounded-lg">
+      <div className="flex items-center gap-3">
+        <Button onClick={onAddLead} size="default" className="gap-2">
+          <Plus className="w-4 h-4" />
+          Novo Lead
+        </Button>
+
+        {isAdmin && (
+          <Button 
+            onClick={() => openModal('STAGE_FORM')} 
+            variant="outline" 
+            size="default" 
+            className="gap-2 border-dashed"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Etapa
+          </Button>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3">
       <Select value={selectedInstance} onValueChange={onInstanceChange} disabled={instancesLoading}>
         <SelectTrigger className="w-[240px]">
           <Building2 className="w-4 h-4 mr-2" />
@@ -59,5 +80,6 @@ export function PipelineToolbar({
         </PopoverContent>
       </Popover>
     </div>
-  );
+  </div>
+);
 }

@@ -2,6 +2,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export const LEADS_UPDATED_EVENT = "leads-updated";
+
+export function notifyLeadsUpdated() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(LEADS_UPDATED_EVENT));
+  }
+}
+
 export interface Lead {
   id: string;
   lead_name: string;
@@ -9,6 +17,7 @@ export interface Lead {
   contact_phone: string | null;
   source: string | null;
   status: string;
+  stage_id: string | null;
   created_at: string;
   updated_at: string | null;
   last_message_at: string | null;
@@ -80,7 +89,6 @@ export function useLeads(options: UseLeadsOptions = {}) {
         setLoading(true);
       }
 
-      // PASSO 1: Descobrir quais IDs estao ativos (view = true), com paginacao
       const PAGE_SIZE = 500;
       const visibleIdRows: Array<{ id: string | null }> = [];
       let page = 0;
@@ -128,7 +136,6 @@ export function useLeads(options: UseLeadsOptions = {}) {
         return;
       }
 
-      // PASSO 2: Buscar os detalhes em lotes para evitar URL muito grande (400)
       const chunkSize = 200;
       const allLeads: Lead[] = [];
 
@@ -163,6 +170,7 @@ export function useLeads(options: UseLeadsOptions = {}) {
       if (!isMountedRef.current) {
         return;
       }
+
       setLeads(sortLeadsByRecency(allLeads));
     } catch (error: any) {
       console.error("Erro ao carregar leads:", error);
@@ -302,7 +310,6 @@ export function useLeads(options: UseLeadsOptions = {}) {
       return;
     }
 
-    // Inscreve para atualizacoes em tempo real
     const channel = supabase
       .channel("leads-changes-sorting")
       .on(
@@ -336,7 +343,23 @@ export function useLeads(options: UseLeadsOptions = {}) {
     };
   }, [enabled, enableRealtime, fetchLeads, queueRealtimeLeadUpdate]);
 
-  const refetch = useCallback(() => fetchLeads({ showLoading: true }), [fetchLeads]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleLeadsUpdated = () => {
+      void fetchLeads({ showLoading: false });
+    };
+
+    window.addEventListener(LEADS_UPDATED_EVENT, handleLeadsUpdated);
+    return () => {
+      window.removeEventListener(LEADS_UPDATED_EVENT, handleLeadsUpdated);
+    };
+  }, [fetchLeads]);
+
+  const refetch = useCallback(
+    ({ showLoading = true }: { showLoading?: boolean } = {}) => fetchLeads({ showLoading }),
+    [fetchLeads]
+  );
 
   return { leads, loading, refetch };
 }

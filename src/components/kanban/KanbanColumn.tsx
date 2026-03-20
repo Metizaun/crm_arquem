@@ -1,136 +1,173 @@
 import { Lead } from "@/hooks/useLeads";
-import { KanbanColumn as KanbanColumnType } from "@/types";
+import { PipelineStage } from "@/types";
 import { LeadCard } from "./LeadCard";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Palette } from "lucide-react";
+import { MoreVertical, Edit2, Trash2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/AuthContext";
 import { useApp } from "@/context/AppContext";
 
 interface KanbanColumnProps {
-  column: KanbanColumnType;
+  column: PipelineStage;
   leads: Lead[];
-  onDragStart: (lead: Lead) => void;
-  onDragEnd: () => void;
-  onDrop: (columnId: Lead["status"]) => void;
-  isDragging: boolean;
+  activeDragType: "lead" | "column" | null;
+  activeDragId: string | null;
+  onLeadDragStart: (leadId: string) => void;
+  onLeadDragEnd: () => void;
+  onLeadDrop: (targetColumnId: string, leadId?: string) => void;
+  onColumnDragStart?: (columnId: string) => void;
+  onColumnDragEnd?: () => void;
+  onColumnDrop?: (targetColumnId: string, sourceColumnId?: string) => void;
+  isDraggingColumn?: boolean;
 }
-
-const colorPalette = [
-  { name: "Azul", value: "hsl(199, 89%, 48%)" },
-  { name: "Amarelo", value: "hsl(48, 96%, 53%)" },
-  { name: "Roxo", value: "hsl(262, 52%, 47%)" },
-  { name: "Verde", value: "hsl(142, 71%, 45%)" },
-  { name: "Vermelho", value: "hsl(0, 84%, 60%)" },
-  { name: "Rosa", value: "hsl(280, 65%, 60%)" },
-  { name: "Laranja", value: "hsl(25, 95%, 53%)" },
-  { name: "Ciano", value: "hsl(180, 75%, 45%)" },
-];
 
 export function KanbanColumn({
   column,
   leads,
-  onDragStart,
-  onDragEnd,
-  onDrop,
-  isDragging,
+  activeDragType,
+  activeDragId,
+  onLeadDragStart,
+  onLeadDragEnd,
+  onLeadDrop,
+  onColumnDragStart,
+  onColumnDragEnd,
+  onColumnDrop,
+  isDraggingColumn,
 }: KanbanColumnProps) {
-  const { updateKanbanColumn } = useApp();
-  const [isDragOver, setIsDragOver] = useState(false);
+  const { openModal } = useApp();
+  const { userRole } = useAuth();
+  const isAdmin = userRole === "ADMIN";
+  const [isLeadDragOver, setIsLeadDragOver] = useState(false);
+  const [isColumnDragOver, setIsColumnDragOver] = useState(false);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleLeadDragOver = (e: React.DragEvent) => {
+    if (activeDragType !== "lead") return;
     e.preventDefault();
-    setIsDragOver(true);
+    setIsLeadDragOver(true);
   };
 
-  const handleDragLeave = () => {
-    setIsDragOver(false);
+  const handleLeadDragLeave = () => {
+    setIsLeadDragOver(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleLeadDrop = (e: React.DragEvent) => {
+    if (activeDragType !== "lead") return;
     e.preventDefault();
-    setIsDragOver(false);
-    onDrop(column.id);
+    e.stopPropagation();
+    setIsLeadDragOver(false);
+
+    const leadId = e.dataTransfer.getData("text/lead-id") || (activeDragType === "lead" ? activeDragId || undefined : undefined);
+    onLeadDrop(column.id, leadId);
+  };
+
+  const handleColumnDragOver = (e: React.DragEvent) => {
+    if (activeDragType !== "column") return;
+    e.preventDefault();
+    setIsColumnDragOver(true);
+  };
+
+  const handleColumnDragLeave = () => {
+    setIsColumnDragOver(false);
+  };
+
+  const handleColumnDrop = (e: React.DragEvent) => {
+    if (activeDragType !== "column") return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsColumnDragOver(false);
+
+    const sourceColumnId =
+      e.dataTransfer.getData("text/column-id") ||
+      (activeDragType === "column" ? activeDragId || undefined : undefined);
+
+    onColumnDrop?.(column.id, sourceColumnId);
   };
 
   return (
     <div
       className={cn(
-        "flex-1 min-w-0 bg-card bg-card rounded-lg border border-border transition-all relative flex flex-col",
-        isDragOver && "column-drag-active"
+        "flex-1 min-w-[280px] w-[280px] bg-card rounded-lg border border-border transition-all relative flex flex-col shrink-0",
+        isLeadDragOver && "column-drag-active",
+        isDraggingColumn && "opacity-50"
       )}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      onDragOver={handleLeadDragOver}
+      onDragLeave={handleLeadDragLeave}
+      onDrop={handleLeadDrop}
       role="list"
       aria-label={`Coluna ${column.name}`}
     >
-      {/* Linha superior colorida (4px) */}
       <div
-  className={cn(
-    "kanban-light-bar",
-    isDragOver && "kanban-light-bar-active"
-  )}
-  style={{
-    "--kanban-color": column.color,
-  } as any}
-/>
+        className={cn("kanban-light-bar", isLeadDragOver && "kanban-light-bar-active")}
+        style={{
+          "--kanban-color": column.color,
+        } as any}
+      />
 
-
-
-
-      {/* Header */}
       <div
-        className="p-4 border-b border-border flex items-center justify-between"
+        className={cn(
+          "p-4 border-b border-border flex items-center justify-between",
+          isAdmin && "cursor-grab active:cursor-grabbing",
+          isColumnDragOver && "bg-accent"
+        )}
         style={{ backgroundColor: column.color + "15" }}
+        draggable={isAdmin}
+        onDragStart={(e) => {
+          if (!isAdmin) return;
+          e.dataTransfer.setData("application/x-kanban-item", "column");
+          e.dataTransfer.setData("text/column-id", column.id);
+          e.dataTransfer.effectAllowed = "move";
+          onColumnDragStart?.(column.id);
+        }}
+        onDragEnd={() => {
+          setIsColumnDragOver(false);
+          onColumnDragEnd?.();
+        }}
+        onDragOver={handleColumnDragOver}
+        onDragLeave={handleColumnDragLeave}
+        onDrop={handleColumnDrop}
       >
         <div className="flex items-center gap-2">
+          {isAdmin && <GripVertical className="w-4 h-4 text-muted-foreground" />}
           <h3 className="font-semibold text-sm">{column.name}</h3>
           <span className="text-xs text-muted-foreground">({leads.length})</span>
         </div>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <Palette className="w-3.5 h-3.5" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-48 p-3">
-            <p className="text-sm font-medium mb-2">Cor da coluna</p>
-            <div className="grid grid-cols-4 gap-2">
-              {colorPalette.map((color) => (
-                <button
-                  key={color.value}
-                  className="w-8 h-8 rounded-md hover:scale-110 transition-transform focus-ring"
-                  style={{ backgroundColor: color.value }}
-                  onClick={() => updateKanbanColumn(column.id, color.value)}
-                  aria-label={color.name}
-                />
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
+        {isAdmin && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                <MoreVertical className="w-3.5 h-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openModal("STAGE_FORM", { stage: column })}>
+                <Edit2 className="w-4 h-4 mr-2" />
+                Editar Etapa
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => openModal("DELETE_STAGE", { stage: column })}
+                className="text-destructive focus:bg-destructive focus:text-destructive-foreground"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir Etapa
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
-      {/* Cards - sem scroll interno, coluna cresce naturalmente */}
-      <div
-        className={cn(
-          "p-3 space-y-2",
-          isDragOver && "drag-placeholder"
-        )}
-      >
+      <div className={cn("p-3 space-y-2", isLeadDragOver && "drag-placeholder")}>
         {leads.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground text-sm">
-            Nenhum lead nesta etapa
-          </div>
+          <div className="text-center py-12 text-muted-foreground text-sm">Nenhum lead nesta etapa</div>
         ) : (
           leads.map((lead) => (
             <LeadCard
               key={lead.id}
               lead={lead}
-              onDragStart={() => onDragStart(lead)}
-              onDragEnd={onDragEnd}
+              onDragStart={() => onLeadDragStart(lead.id)}
+              onDragEnd={onLeadDragEnd}
             />
           ))
         )}

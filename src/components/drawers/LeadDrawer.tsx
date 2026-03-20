@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useLeads, Lead } from "@/hooks/useLeads";
-import { useLeadOperations } from "@/hooks/useLeadOperations";
+import { useLeads, Lead, notifyLeadsUpdated } from "@/hooks/useLeads";
+import { usePipelineStages } from "@/hooks/usePipelineStages";
 import { useApp } from "@/context/AppContext";
+import { StageBadge } from "@/components/kanban/StageBadge";
 import {
   Sheet,
   SheetContent,
@@ -30,35 +31,52 @@ import { ptBR } from "date-fns/locale";
 import EditLeadModal from "@/components/modals/EditLeadModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 export function LeadDrawer() {
   const { ui, closeDrawer } = useApp();
-  const { leads, refetch } = useLeads({
+  const { leads } = useLeads({
     enabled: !!ui.drawerLeadId,
     enableRealtime: false,
   });
-  const { updateLeadStatus } = useLeadOperations();
+  const { stages } = usePipelineStages();
+  const navigate = useNavigate();
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
-  
-  const lead = leads.find((l) => l.id === ui.drawerLeadId);
 
-  const handleQuickUpdate = async (newStatus: string) => {
+  const lead = leads.find((l) => l.id === ui.drawerLeadId);
+  const normalize = (value?: string | null) =>
+    (value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+
+  const currentStage =
+    stages.find((s) => s.id === lead?.stage_id) ||
+    stages.find((s) => normalize(s.name) === normalize(lead?.status));
+
+  const handleQuickUpdate = async (newStatus: "Ganho" | "Perdido") => {
     if (!lead) return;
-    
+
+    const targetStage = stages.find((stage) => stage.category === newStatus);
+
     await supabase
       .from("leads")
-      .update({ status: newStatus })
+      .update({
+        status: newStatus,
+        stage_id: targetStage?.id || lead.stage_id || null,
+      })
       .eq("id", lead.id);
-    
+
     toast.success(`Lead marcado como ${newStatus}`);
-    refetch();
+    notifyLeadsUpdated();
     closeDrawer();
   };
 
-  const handleWhatsApp = () => {
-    if (lead?.contact_phone) {
-      window.open(`https://wa.me/${lead.contact_phone.replace(/\D/g, '')}`, '_blank');
-    }
+  const handleOpenChat = () => {
+    if (!lead?.id) return;
+    closeDrawer();
+    navigate(`/chat?leadId=${lead.id}`);
   };
 
   if (!lead) return null;
@@ -69,11 +87,7 @@ export function LeadDrawer() {
         <SheetHeader>
           <div className="flex items-center justify-between">
             <SheetTitle className="text-xl">{lead.lead_name}</SheetTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditingLead(lead)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setEditingLead(lead)}>
               <Edit className="w-4 h-4 mr-2" />
               Editar
             </Button>
@@ -82,9 +96,7 @@ export function LeadDrawer() {
 
         <div className="mt-6 space-y-6">
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="font-medium">
-              {lead.status}
-            </Badge>
+            {currentStage ? <StageBadge stage={currentStage} className="text-xs px-3 py-1" /> : null}
           </div>
 
           <div className="space-y-4">
@@ -103,10 +115,7 @@ export function LeadDrawer() {
                 <Mail className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="text-sm font-medium">Email</p>
-                  <a
-                    href={`mailto:${lead.email}`}
-                    className="text-sm text-primary hover:underline"
-                  >
+                  <a href={`mailto:${lead.email}`} className="text-sm text-primary hover:underline">
                     {lead.email}
                   </a>
                 </div>
@@ -127,7 +136,7 @@ export function LeadDrawer() {
               <div className="flex items-start gap-3">
                 <User className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Responsável</p>
+                  <p className="text-sm font-medium">Responsavel</p>
                   <p className="text-sm text-muted-foreground">{lead.owner_name}</p>
                 </div>
               </div>
@@ -149,7 +158,7 @@ export function LeadDrawer() {
                 <div>
                   <p className="text-sm font-medium">Valor da Oportunidade</p>
                   <p className="text-sm text-muted-foreground">
-                    R$ {lead.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {lead.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
@@ -159,11 +168,16 @@ export function LeadDrawer() {
               <div className="flex items-start gap-3">
                 <Signal className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Nível de Conexão</p>
-                  <Badge variant={
-                    lead.connection_level === 'Alta' ? 'default' :
-                    lead.connection_level === 'Média' ? 'secondary' : 'outline'
-                  }>
+                  <p className="text-sm font-medium">Nivel de Conexao</p>
+                  <Badge
+                    variant={
+                      lead.connection_level === "Alta"
+                        ? "default"
+                        : lead.connection_level === "Media"
+                          ? "secondary"
+                          : "outline"
+                    }
+                  >
                     {lead.connection_level}
                   </Badge>
                 </div>
@@ -173,7 +187,7 @@ export function LeadDrawer() {
             <div className="flex items-start gap-3">
               <Calendar className="w-5 h-5 text-muted-foreground mt-0.5" />
               <div>
-                <p className="text-sm font-medium">Data de Criação</p>
+                <p className="text-sm font-medium">Data de Criacao</p>
                 <p className="text-sm text-muted-foreground">
                   {format(parseISO(lead.created_at), "dd 'de' MMMM 'de' yyyy", {
                     locale: ptBR,
@@ -186,7 +200,7 @@ export function LeadDrawer() {
               <div className="flex items-start gap-3">
                 <FileText className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Observações</p>
+                  <p className="text-sm font-medium">Observacoes</p>
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">{lead.notes}</p>
                 </div>
               </div>
@@ -194,30 +208,17 @@ export function LeadDrawer() {
           </div>
 
           <div className="flex gap-2 pt-4 border-t">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleWhatsApp}
-              disabled={!lead.contact_phone}
-            >
+            <Button variant="outline" size="sm" onClick={handleOpenChat}>
               <MessageCircle className="w-4 h-4 mr-2" />
-              WhatsApp
+              Abrir Chat
             </Button>
-            
-            <Button 
-              variant="default"
-              size="sm"
-              onClick={() => handleQuickUpdate('Fechado')}
-            >
+
+            <Button variant="default" size="sm" onClick={() => handleQuickUpdate("Ganho")}> 
               <CheckCircle className="w-4 h-4 mr-2" />
               Fechar Venda
             </Button>
-            
-            <Button 
-              variant="destructive"
-              size="sm"
-              onClick={() => handleQuickUpdate('Perdido')}
-            >
+
+            <Button variant="destructive" size="sm" onClick={() => handleQuickUpdate("Perdido")}> 
               <XCircle className="w-4 h-4 mr-2" />
               Perdido
             </Button>
@@ -230,7 +231,6 @@ export function LeadDrawer() {
         open={!!editingLead}
         onClose={() => setEditingLead(null)}
         onSuccess={() => {
-          refetch();
           setEditingLead(null);
         }}
       />

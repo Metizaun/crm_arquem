@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Building2, DollarSign, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/context/AppContext";
+import { useState } from "react";
 
 interface LeadCardProps {
   lead: Lead;
@@ -14,20 +15,32 @@ interface LeadCardProps {
 
 export function LeadCard({ lead, onDragStart, onDragEnd }: LeadCardProps) {
   const { openDrawer } = useApp();
+  const [isHolding, setIsHolding] = useState(false);
 
   return (
     <Card
       draggable
       onDragStart={(e) => {
+        e.dataTransfer.setData("application/x-kanban-item", "lead");
+        e.dataTransfer.setData("text/lead-id", lead.id);
+        e.dataTransfer.effectAllowed = "move";
         e.currentTarget.setAttribute("aria-grabbed", "true");
+        setIsHolding(true);
         onDragStart();
       }}
       onDragEnd={(e) => {
         e.currentTarget.setAttribute("aria-grabbed", "false");
+        setIsHolding(false);
         onDragEnd();
       }}
+      onMouseDown={() => setIsHolding(true)}
+      onMouseUp={() => setIsHolding(false)}
+      onMouseLeave={() => setIsHolding(false)}
       onClick={() => openDrawer(lead.id)}
-      className="p-3 cursor-grab active:cursor-grabbing hover:shadow-md hover:-translate-y-0.5 transition-all focus-ring"
+      className={cn(
+        "p-3 transition-all focus-ring",
+        isHolding ? "cursor-grabbing shadow-md -translate-y-0.5" : "cursor-pointer"
+      )}
       role="listitem"
       tabIndex={0}
       onKeyDown={(e) => {

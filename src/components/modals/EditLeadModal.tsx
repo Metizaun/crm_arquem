@@ -20,7 +20,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Lead } from "@/hooks/useLeads";
-import { Trash2 } from "lucide-react"; // Importei o ícone de lixeira
+import { usePipelineStages } from "@/hooks/usePipelineStages";
+import { Trash2 } from "lucide-react"; 
+import { notifyLeadsUpdated } from "@/hooks/useLeads";
 
 interface EditLeadModalProps {
   lead: Lead | null;
@@ -29,19 +31,13 @@ interface EditLeadModalProps {
   onSuccess: () => void;
 }
 
-const STATUS_OPTIONS = [
-  "Novo",
-  "Atendimento",
-  "Orçamento",
-  "Fechado",
-  "Perdido",
-  "Remarketing",
-];
+// STATUS_OPTIONS removed in favor of dynamic stages from usePipelineStages
 
 const CONNECTION_LEVELS = ["Baixa", "Média", "Alta"];
 
 export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLeadModalProps) {
   const { users } = useCrmUsers();
+  const { stages } = usePipelineStages();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -50,6 +46,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
     contact_phone: "",
     source: "",
     status: "",
+    stage_id: "",
     owner_id: "",
     value: "",
     connection_level: "",
@@ -65,6 +62,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
         contact_phone: lead.contact_phone || "",
         source: lead.source || "",
         status: lead.status || "",
+        stage_id: lead.stage_id || "",
         owner_id: lead.owner_id || "",
         value: lead.value?.toString() || "",
         connection_level: lead.connection_level || "",
@@ -92,6 +90,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
       if (error) throw error;
 
       toast.success("Lead movido para a lixeira.");
+      notifyLeadsUpdated();
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -107,6 +106,8 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
     if (!lead) return;
 
     setLoading(true);
+    const selectedStage = stages.find((s) => s.id === formData.stage_id);
+    const derivedStatus = selectedStage?.category || "Aberto";
 
     try {
       const { error: leadError } = await supabase
@@ -117,7 +118,8 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
           email: formData.email,
           contact_phone: formData.contact_phone,
           "Fonte": formData.source,
-          status: formData.status,
+          status: derivedStatus,
+          stage_id: formData.stage_id || null,
           owner_id: formData.owner_id || null,
           notes: formData.notes || null,
         })
@@ -130,7 +132,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
           lead_id: lead.id,
           value: formData.value ? parseFloat(formData.value) : null,
           connection_level: formData.connection_level || null,
-          status: formData.status,
+          status: derivedStatus,
         };
 
         const { data: existingOpp } = await supabase
@@ -154,6 +156,7 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
       }
 
       toast.success("Lead atualizado com sucesso!");
+      notifyLeadsUpdated();
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -234,18 +237,20 @@ export default function EditLeadModal({ lead, open, onClose, onSuccess }: EditLe
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="stage_id">Etapa do Funil</Label>
               <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
+                value={formData.stage_id}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, stage_id: value });
+                }}
               >
-                <SelectTrigger id="status">
-                  <SelectValue placeholder="Selecione o status" />
+                <SelectTrigger id="stage_id">
+                  <SelectValue placeholder="Selecione a etapa" />
                 </SelectTrigger>
                 <SelectContent>
-                  {STATUS_OPTIONS.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
+                  {stages.map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>
+                      {stage.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLeads, Lead } from "@/hooks/useLeads";
 import { useChat } from "@/hooks/useChat";
 import { LeadSidebar } from "@/components/leads/LeadSidebar";
@@ -8,10 +8,12 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { MessageSquare } from "lucide-react";
 import EditLeadModal from "@/components/modals/EditLeadModal";
 import { useApp } from "@/context/AppContext";
+import { useSearchParams } from "react-router-dom";
 
 export default function Chat() {
   const { leads, loading: leadsLoading, refetch } = useLeads({ enableRealtime: true });
   const { ui } = useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   
@@ -31,6 +33,21 @@ export default function Chat() {
     );
   }, [leads, ui.searchQuery]);
 
+  useEffect(() => {
+    const leadIdFromQuery = searchParams.get("leadId");
+    if (!leadIdFromQuery) return;
+    setSelectedLeadId(leadIdFromQuery);
+  }, [searchParams]);
+
+  const handleSelectLead = (leadId: string | null) => {
+    setSelectedLeadId(leadId);
+    if (leadId) {
+      setSearchParams({ leadId });
+      return;
+    }
+    setSearchParams({});
+  };
+
   // Encontra o objeto Lead baseado no ID selecionado dentro da lista filtrada
   const selectedLead = filteredLeads.find((l) => l.id === selectedLeadId);
 
@@ -40,7 +57,7 @@ export default function Chat() {
       <LeadSidebar
         leads={filteredLeads}
         selectedLeadId={selectedLeadId}
-        onSelectLead={setSelectedLeadId}
+        onSelectLead={handleSelectLead}
         loading={leadsLoading}
       />
 

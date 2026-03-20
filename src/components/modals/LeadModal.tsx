@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLeadOperations } from "@/hooks/useLeadOperations";
 import { useCrmUsers } from "@/hooks/useCrmUsers";
-import { useLeads } from "@/hooks/useLeads";
+import { usePipelineStages } from "@/hooks/usePipelineStages";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,7 @@ interface LeadModalProps {
 export function LeadModal({ isOpen, onClose }: LeadModalProps) {
   const { createLead } = useLeadOperations();
   const { users } = useCrmUsers();
-  const { refetch } = useLeads({ enableRealtime: false });
+  const { stages } = usePipelineStages();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -31,12 +31,21 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
     contact_phone: "",
     source: "WhatsApp",
     last_city: "",
-    status: "Novo",
+    stage_id: "",
     value: "",
     connection_level: "",
     owner_id: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (isOpen && stages.length > 0 && !formData.stage_id) {
+      setFormData((prev) => ({
+        ...prev,
+        stage_id: stages[0].id,
+      }));
+    }
+  }, [isOpen, stages, formData.stage_id]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -46,25 +55,28 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
         contact_phone: "",
         source: "WhatsApp",
         last_city: "",
-        status: "Novo",
+        stage_id: stages.length > 0 ? stages[0].id : "",
         value: "",
         connection_level: "",
         owner_id: "",
         notes: "",
       });
     }
-  }, [isOpen]);
+  }, [isOpen, stages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const selectedStage = stages.find((s) => s.id === formData.stage_id);
+    const derivedStatus = selectedStage?.category || "Aberto";
 
     const { error } = await createLead({
       name: formData.name,
-      email: formData.email, // Agora passamos o email mesmo que vazio
+      email: formData.email,
       contact_phone: formData.contact_phone,
       source: formData.source,
       last_city: formData.last_city,
-      status: formData.status,
+      status: derivedStatus,
+      stage_id: formData.stage_id,
       value: formData.value ? parseFloat(formData.value) : undefined,
       connection_level: formData.connection_level || undefined,
       owner_id: formData.owner_id || undefined,
@@ -72,7 +84,6 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
     });
 
     if (!error) {
-      refetch();
       onClose();
     }
   };
@@ -106,11 +117,10 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label> {/* Removido o * */}
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                // Removido o atributo required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
@@ -141,28 +151,29 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
                   <SelectItem value="Instagram">Instagram</SelectItem>
                   <SelectItem value="Facebook">Facebook</SelectItem>
                   <SelectItem value="Google Ads">Google Ads</SelectItem>
-                  <SelectItem value="Indicação">Indicação</SelectItem>
+                  <SelectItem value="Indicacao">Indicacao</SelectItem>
                   <SelectItem value="Outro">Outro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="stage_id">Etapa do Funil</Label>
               <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
+                value={formData.stage_id}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, stage_id: value });
+                }}
               >
-                <SelectTrigger id="status">
-                  <SelectValue />
+                <SelectTrigger id="stage_id">
+                  <SelectValue placeholder="Selecione a etapa" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Novo">Novo</SelectItem>
-                  <SelectItem value="Atendimento">Atendimento</SelectItem>
-                  <SelectItem value="Orçamento">Orçamento</SelectItem>
-                  <SelectItem value="Fechado">Fechado</SelectItem>
-                  <SelectItem value="Perdido">Perdido</SelectItem>
-                  <SelectItem value="Remarketing">Remarketing</SelectItem>
+                  {stages.map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>
+                      {stage.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -180,7 +191,7 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="connection_level">Nível de Conexão</Label>
+              <Label htmlFor="connection_level">Nivel de Conexao</Label>
               <Select
                 value={formData.connection_level}
                 onValueChange={(value) => setFormData({ ...formData, connection_level: value })}
@@ -190,14 +201,14 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Baixa">Baixa</SelectItem>
-                  <SelectItem value="Média">Média</SelectItem>
+                  <SelectItem value="Media">Media</SelectItem>
                   <SelectItem value="Alta">Alta</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="owner_id">Responsável</Label>
+              <Label htmlFor="owner_id">Responsavel</Label>
               <Select
                 value={formData.owner_id}
                 onValueChange={(value) => setFormData({ ...formData, owner_id: value })}
@@ -217,10 +228,10 @@ export function LeadModal({ isOpen, onClose }: LeadModalProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Observações</Label>
+            <Label htmlFor="notes">Observacoes</Label>
             <Textarea
               id="notes"
-              placeholder="Adicione observações sobre este lead..."
+              placeholder="Adicione observacoes sobre este lead..."
               rows={3}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}

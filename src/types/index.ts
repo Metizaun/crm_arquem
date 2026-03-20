@@ -1,4 +1,4 @@
-export type LeadStatus = "Novo" | "Atendimento" | "Orçamento" | "Fechado" | "Perdido" | "Remarketing";
+export type LeadStatus = "Aberto" | "Ganho" | "Perdido";
 export type UserRole = "admin" | "vendedor";
 export type PeriodFilter = "hoje" | "7d" | "30d" | "total" | "custom";
 
@@ -13,7 +13,8 @@ export interface Lead {
   valor: number;
   dataCriacao: string;
   responsavel: string;
-  status: LeadStatus;
+  status: string;
+  stage_id: string | null;
   observacoes?: string;
   instance_name?: string | null;
   last_tag_name?: string | null;
@@ -26,8 +27,17 @@ export interface User {
   role: UserRole;
 }
 
+export interface PipelineStage {
+  id: string;
+  name: string;
+  color: string;
+  position: number;
+  category: LeadStatus;
+  aces_id: number;
+}
+
 export interface KanbanColumn {
-  id: LeadStatus;
+  id: string;
   name: string;
   color: string;
 }

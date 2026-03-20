@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { notifyLeadsUpdated } from "./useLeads";
 
 export function useLeadOperations() {
   const createLead = async (leadData: {
@@ -13,6 +14,7 @@ export function useLeadOperations() {
     connection_level?: string;
     owner_id?: string;
     notes?: string;
+    stage_id?: string;
   }) => {
     try {
       // Criar lead
@@ -24,7 +26,8 @@ export function useLeadOperations() {
           contact_phone: leadData.contact_phone,
           "Fonte": leadData.source,
           last_city: leadData.last_city || null,
-          status: leadData.status || 'Novo',
+          status: leadData.status || 'Aberto',
+          stage_id: leadData.stage_id || null,
           owner_id: leadData.owner_id || null,
           notes: leadData.notes || null,
         })
@@ -32,6 +35,16 @@ export function useLeadOperations() {
         .single();
 
       if (leadError) throw leadError;
+
+      // Guarantee the selected pipeline stage after insert.
+      // Some DB-side sync logic can remap stage based on status/category.
+      if (newLead && leadData.stage_id) {
+        const { error: moveError } = await supabase.rpc("rpc_move_lead_to_stage", {
+          p_lead_id: newLead.id,
+          p_stage_id: leadData.stage_id,
+        });
+        if (moveError) throw moveError;
+      }
 
       // Se houver valor ou conexão, criar opportunity
       if (newLead && (leadData.value || leadData.connection_level)) {
@@ -41,13 +54,14 @@ export function useLeadOperations() {
             lead_id: newLead.id,
             value: leadData.value || null,
             connection_level: leadData.connection_level || null,
-            status: leadData.status || 'Novo',
+            status: leadData.status || 'Aberto',
           });
 
         if (oppError) throw oppError;
       }
 
       toast.success("Lead criado com sucesso!");
+      notifyLeadsUpdated();
       return { error: null };
     } catch (error: any) {
       console.error("Erro ao criar lead:", error);
@@ -68,6 +82,7 @@ export function useLeadOperations() {
       if (error) throw error;
 
       toast.success("Status atualizado!");
+      notifyLeadsUpdated();
       return { error: null };
     } catch (error: any) {
       console.error("Erro ao atualizar status:", error);
@@ -95,6 +110,7 @@ export function useLeadOperations() {
       if (error) throw error;
 
       toast.success("Oportunidade criada!");
+      notifyLeadsUpdated();
       return { error: null };
     } catch (error: any) {
       console.error("Erro ao criar oportunidade:", error);
@@ -105,5 +121,26 @@ export function useLeadOperations() {
     }
   };
 
-  return { createLead, updateLeadStatus, createOpportunity };
+  const moveLeadToStage = async (leadId: string, stageId: string) => {
+    try {
+      const { error } = await supabase.rpc('rpc_move_lead_to_stage', {
+        p_lead_id: leadId,
+        p_stage_id: stageId
+      });
+
+      if (error) throw error;
+
+      toast.success("Lead movido com sucesso!");
+      notifyLeadsUpdated();
+      return { error: null };
+    } catch (error: any) {
+      console.error("Erro ao mover lead:", error);
+      toast.error("Erro ao mover lead", {
+        description: error.message
+      });
+      return { error };
+    }
+  };
+
+  return { createLead, updateLeadStatus, createOpportunity, moveLeadToStage };
 }
