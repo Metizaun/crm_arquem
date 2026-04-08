@@ -14,7 +14,7 @@ const navigation = [
 const STORAGE_KEY = "crm_sidebar_collapsed_v1";
 
 export function Sidebar() {
-  const { user, userRole } = useAuth();
+  const { user, userRole, profileName } = useAuth();
   const isAdmin = userRole === "ADMIN";
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -40,7 +40,7 @@ export function Sidebar() {
     }
   }
 
-  const userName = user?.user_metadata?.name || user?.email || "Usuário";
+  const userName = profileName || user?.user_metadata?.name || user?.email || "Usuário";
   const userEmail = user?.email || "";
   const userInitial = userName.charAt(0).toUpperCase();
 
@@ -123,7 +123,14 @@ export function Sidebar() {
                   }
                 >
                   <Settings className={cn("w-5 h-5 transition-transform duration-200", collapsed ? "mx-0" : "mr-2")} />
-                  <span className={cn("transition-opacity duration-200", collapsed ? "opacity-0 pointer-events-none absolute" : "opacity-100 relative")}>Admin</span>
+                  <span
+                    className={cn(
+                      "transition-opacity duration-200",
+                      collapsed ? "opacity-0 pointer-events-none absolute" : "opacity-100 relative"
+                    )}
+                  >
+                    Admin
+                  </span>
                 </NavLink>
               </li>
             )}
@@ -136,7 +143,12 @@ export function Sidebar() {
               {userInitial}
             </div>
 
-            <div className={cn("flex-1 min-w-0 transition-opacity duration-300", collapsed ? "opacity-0 pointer-events-none absolute" : "opacity-100")}>
+            <div
+              className={cn(
+                "flex-1 min-w-0 transition-opacity duration-300",
+                collapsed ? "opacity-0 pointer-events-none absolute" : "opacity-100"
+              )}
+            >
               <p className="text-sm font-medium truncate">{userName}</p>
               <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
             </div>

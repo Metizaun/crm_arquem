@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: UserRole | null;
+  profileName: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
@@ -22,76 +23,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [profileName, setProfileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Busca a role em segundo plano, sem travar a tela
-  const fetchUserRoleBackground = async (userId: string) => {
+  const fetchUserProfileBackground = async (userId: string) => {
     try {
-      // Usa .select direto na tabela (mais robusto que RPC)
       const { data, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('auth_user_id', userId)
+        .from("users")
+        .select("role, name")
+        .eq("auth_user_id", userId)
         .maybeSingle();
 
       if (!error && data) {
-        console.log("✅ Admin verificado em background:", data.role);
         setUserRole(data.role as UserRole);
+        setProfileName(data.name ?? null);
       }
     } catch (error) {
-      console.error("Erro silencioso ao buscar role:", error);
+      console.error("Erro silencioso ao buscar perfil:", error);
     }
   };
 
   useEffect(() => {
     let mounted = true;
 
-    // Função de inicialização rápida
     const initAuth = async () => {
       try {
-        // 1. Pega a sessão (Login)
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession();
+
         if (mounted) {
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
-          
-          // 2. O PULO DO GATO: Libera a tela IMEDIATAMENTE!
-          // Não esperamos a role para deixar o usuário entrar.
+          setProfileName(currentSession?.user?.user_metadata?.name ?? null);
           setLoading(false);
 
-          // 3. Busca a role depois (em background)
           if (currentSession?.user) {
-            fetchUserRoleBackground(currentSession.user.id);
+            fetchUserProfileBackground(currentSession.user.id);
           }
         }
       } catch (error) {
         console.error("Erro no Auth Init:", error);
-        if (mounted) setLoading(false); // Garante liberação mesmo com erro
+        if (mounted) setLoading(false);
       }
     };
 
     initAuth();
 
-    // Listener para Login/Logout em tempo real
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, currentSession) => {
-        if (!mounted) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      if (!mounted) return;
 
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        
-        // Garante que o loading saia imediatamente ao trocar de estado
-        setLoading(false); 
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      setProfileName(currentSession?.user?.user_metadata?.name ?? null);
+      setLoading(false);
 
-        if (currentSession?.user) {
-          // Busca role em background novamente
-          fetchUserRoleBackground(currentSession.user.id);
-        } else {
-          setUserRole(null);
-        }
+      if (currentSession?.user) {
+        fetchUserProfileBackground(currentSession.user.id);
+      } else {
+        setUserRole(null);
+        setProfileName(null);
       }
-    );
+    });
 
     return () => {
       mounted = false;
@@ -108,8 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     const redirectUrl = `${window.location.origin}/`;
     const { error } = await supabase.auth.signUp({
-      email, password,
-      options: { emailRedirectTo: redirectUrl, data: { name } }
+      email,
+      password,
+      options: { emailRedirectTo: redirectUrl, data: { name } },
     });
     if (error) toast.error("Erro ao criar conta", { description: error.message });
     else toast.success("Conta criada!", { description: "Aguarde aprovação." });
@@ -121,12 +117,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setUserRole(null);
+    setProfileName(null);
   };
 
   const isPendingApproval = userRole === "NENHUM";
 
   return (
-    <AuthContext.Provider value={{ user, session, userRole, loading, signIn, signUp, signOut, isPendingApproval }}>
+    <AuthContext.Provider
+      value={{ user, session, userRole, profileName, loading, signIn, signUp, signOut, isPendingApproval }}
+    >
       {children}
     </AuthContext.Provider>
   );
